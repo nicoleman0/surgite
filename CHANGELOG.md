@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-09-04
+
 ### Added
 
 - **Releases publish a container image to `ghcr.io/nicoleman0/surgite`.** The
