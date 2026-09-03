@@ -61,6 +61,22 @@ your account with a password you set in the prompt. You're logged in; invite
 the rest of your team from the web UI (admins land in slice 2; until then the
 API endpoints are in `docs/security.md`).
 
+### Running the published image
+
+`docker compose up -d` builds from the checkout. Every release also publishes a
+prebuilt image, so you can skip the build:
+
+```bash
+echo "APP_IMAGE=ghcr.io/nicoleman0/surgite:latest" >> .env
+docker compose pull && docker compose up -d
+```
+
+Tags are `latest`, the minor line (`1.3`), and the exact version (`1.3.0`) —
+pin the exact one if you'd rather choose your upgrades. Note that the `docker
+compose pull` in the upgrade instructions below only does anything with
+`APP_IMAGE` set; without it, compose rebuilds from the checkout and you upgrade
+with `git pull` instead. amd64 only for now.
+
 ## Using your own LLM
 
 Summaries can run against a model you host, with no call leaving your network.

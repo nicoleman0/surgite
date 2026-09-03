@@ -42,3 +42,40 @@ jobs:
           name: dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@release/v1
+
+  # The container image, published to GHCR alongside the wheel. Unlike PyPI, a
+  # container tag can be overwritten, so a bad build is repushable -- the care
+  # goes to the moving tags (`latest`, `1.3`) that someone else's `docker
+  # compose pull` follows. GITHUB_TOKEN is the whole credential; GHCR needs no
+  # stored secret.
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # The default `latest=auto` flavour adds `:latest` on a semver tag,
+          # so v1.3.0 publishes 1.3.0, 1.3 and latest. The step also emits the
+          # OCI labels -- `image.source` is what links the package to the repo.
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Keeps the npm ci and uv sync layers warm between releases.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

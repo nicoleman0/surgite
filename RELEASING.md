@@ -1,7 +1,8 @@
 # Releasing
 
-How a version of surgite gets from the repository to PyPI. Read it top to
-bottom the first time; after that the checklist is the whole of it.
+How a version of surgite gets from the repository to PyPI and to the GitHub
+Container Registry. Read it top to bottom the first time; after that the
+checklist is the whole of it.
 
 Commands use the `uv` forms; `python -m build` / `python -m twine check`
 work the same in a plain pip virtualenv.
@@ -106,3 +107,21 @@ uv run --no-project --with surgite==X.Y.Z surgite --help
 **A version number on PyPI is permanent.** It cannot be re-uploaded or
 overwritten, only yanked and superseded. Get the tag right before you cut
 the release.
+
+## Publishing the container image
+
+The same release event runs the `image` job in the same workflow, which builds
+`Dockerfile` and pushes `ghcr.io/nicoleman0/surgite` tagged `X.Y.Z`, `X.Y` and
+`latest` (amd64 only). The credential is the workflow's own `GITHUB_TOKEN`, so
+unlike PyPI there is nothing to configure — no secret, no environment, no
+trusted-publisher setup.
+
+**One-time, after the first release that runs this job:** the package is
+created private. Open it from the repo's *Packages* sidebar → *Package
+settings* → *Change visibility* → **Public**, or nobody else can pull it.
+
+A container tag, unlike a PyPI version, can be overwritten: re-running the
+release workflow republishes it. That makes a bad image far less costly than a
+bad wheel — but it also means `latest` and the minor tag move under anyone
+following them, which is why `docs/self-host.md` offers the exact version to
+pin.

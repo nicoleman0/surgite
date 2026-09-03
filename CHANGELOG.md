@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Releases publish a container image to `ghcr.io/nicoleman0/surgite`.** The
+  release workflow builds `Dockerfile` and pushes `X.Y.Z`, `X.Y` and `latest`
+  (amd64). Self-hosters can skip the source build by setting
+  `APP_IMAGE=ghcr.io/nicoleman0/surgite:latest` in `.env`, which is also what
+  makes the documented `docker compose pull` upgrade path do anything.
+
 ## [1.3.0] - 2026-09-03
 
 ### Added

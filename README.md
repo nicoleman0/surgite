@@ -5,6 +5,7 @@ Standup summaries from your git history — in the browser, in the terminal, or 
 [![CI](https://github.com/nicoleman0/surgite/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nicoleman0/surgite/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/surgite)](https://pypi.org/project/surgite/)
 [![Python versions](https://img.shields.io/pypi/pyversions/surgite)](https://pypi.org/project/surgite/)
+[![Container image](https://img.shields.io/badge/ghcr.io-surgite-blue?logo=docker&logoColor=white)](https://github.com/nicoleman0/surgite/pkgs/container/surgite)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 The web app gives your team a shared dashboard: per-user repos, per-user prompt
@@ -27,6 +28,9 @@ cd surgite
 cp .env.example .env       # set BOOTSTRAP_OWNER_EMAIL=you@example.com
 docker compose up -d
 ```
+
+That builds the image from the checkout. To pull the published one instead of
+building, uncomment `APP_IMAGE=ghcr.io/nicoleman0/surgite:latest` in `.env`.
 
 On first start the app mints an admin invite and logs the token; redeem it
 with `uv run surgite --redeem-invite <token> --email you@example.com` and
