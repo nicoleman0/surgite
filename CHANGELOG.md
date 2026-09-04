@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-09-04
+
+### Fixed
+
+- **The release workflow's image job now sets up buildx** before building, so
+  it can export its layer cache. The runner's default `docker` driver cannot,
+  and errors out rather than skipping the cache — which meant 1.3.1 published
+  a wheel but no container image.
+
 ## [1.3.1] - 2026-09-04
 
 ### Added
