@@ -9,9 +9,9 @@ companion to [`docs/security.md`](security.md) (the threat model) and
 
 Security fixes land on the latest release. Specifically:
 
-- **The latest minor** (e.g. 1.3.x) always gets security patches.
-- **The previous minor** (e.g. 1.2.x) gets security patches for **6
-  months after the next minor ships**. So when 1.4.0 ships, 1.3.x is
+- **The latest minor** (e.g. 1.4.x) always gets security patches.
+- **The previous minor** (e.g. 1.3.x) gets security patches for **6
+  months after the next minor ships**. So when 1.5.0 ships, 1.4.x is
   supported for a further 6 months; after that, upgrade to stay covered.
 - Older minors are end-of-life — no backports.
 
@@ -21,9 +21,9 @@ pinned a version isn't forced into a same-week upgrade to get a fix.
 
 | Version | Status |
 |---------|--------|
-| 1.3.x | Supported (latest minor) |
-| 1.2.x | Supported until 6 months after 1.4.0 |
-| ≤ 1.1.x | End-of-life |
+| 1.4.x | Supported (latest minor) |
+| 1.3.x | Supported until 6 months after 1.5.0 |
+| ≤ 1.2.x | End-of-life |
 
 This table is updated as part of cutting a release; see
 [`RELEASING.md`](../RELEASING.md).

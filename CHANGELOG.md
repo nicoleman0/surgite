@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Breaking
+## [1.4.0] - 2026-09-06
+
+### Changed
 
 - **Git TLS verification is now on by default in the shipped compose file.**
+  *Action required on upgrade if you clone from a git host with a
+  self-signed or private-CA certificate.*
   `docker-compose.yml` previously set `GIT_SSL_NO_VERIFY: "1"`, disabling
   certificate verification for every `git clone`/`fetch`/`ls-remote` the app
   performs. It is now `${GIT_SSL_NO_VERIFY:-0}` (verify by default).
@@ -17,6 +21,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `GIT_SSL_NO_VERIFY=1` in `.env`; deployments with a private-CA git host
   should mount the CA bundle and set `GIT_SSL_CAINFO` instead. See
   [`docs/self-host.md`](docs/self-host.md). (#20)
+
+### Fixed
+
+- **The help overlay is keyboard accessible.** It is a native modal
+  `<dialog>` now: focus moves into it on open, Tab and Shift+Tab stay
+  inside it, the page behind goes inert, and focus returns to whatever
+  opened it on close. The close control has an accessible name. Previously
+  the overlay declared `aria-modal="true"` while doing none of that. (#31)
 
 ### Security
 
