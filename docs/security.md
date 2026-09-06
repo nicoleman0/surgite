@@ -1,15 +1,13 @@
-# Security model — 0.5.0
+# Security model
 
-This document describes the threat model for 0.5.0 and the design
-choices that follow from it. The 0.5.0 release makes surgite
-**safe to expose to the public internet** behind a TLS terminator
-(Traefik + step-ca, Caddy + Let's Encrypt, or anything else that
-hands the app a verified connection).
+This document describes surgite's threat model and the design choices
+that follow from it. surgite is **safe to expose to the public internet**
+behind a TLS terminator (Traefik + step-ca, Caddy + Let's Encrypt, or
+anything else that hands the app a verified connection).
 
-The 0.4.0 model was "single-tenant, no auth, trusted network". 0.5.0
-keeps that mode as `AUTH_MODE=off` and `AUTH_MODE=single_user` and
-adds `AUTH_MODE=multi_user` as the production default for any
-deployment that isn't an internal-only homelab tool.
+`AUTH_MODE=off` and `AUTH_MODE=single_user` are the single-tenant,
+trusted-network shapes. `AUTH_MODE=multi_user` is the production default
+for any deployment that isn't an internal-only homelab tool.
 
 ## Threat model
 
@@ -27,9 +25,8 @@ What we're defending against:
 - **Cross-tenant data leak.** One authenticated user reads another
   user's repos / commits / provider keys / shares. Mitigated by
   owner-scoped queries on every table (`owner_id = current_user.id`
-  is the only access pattern) and the explicit per-route checks
-  documented in `docs/releases/0.5.0-plan.md` (the historical
-  plan; the current roadmap is `docs/0.6.0-plan.md`).
+  is the only access pattern) plus explicit per-route ownership
+  checks.
 - **API key theft.** The CLI's `SURGITE_API_KEY` is stolen. Mitigated
   by `name` on every key (revoke "laptop", keep "CI"), `last_used_at`
   for forensic review, and the fact that keys are argon2id-hashed
@@ -57,6 +54,20 @@ What we're defending against:
   admin-only in multi_user mode and showing the *calling admin's*
   per-user status (their own `provider_keys` rows + env-var
   fallback), not the global picture.
+- **A forged certificate on a git host.** The app clones and fetches
+  from every registered repo, so repo transport is as much an attack
+  surface as the HTTP API. Mitigated by leaving git's own TLS
+  verification on: the shipped compose file defaults
+  `GIT_SSL_NO_VERIFY` to `0`. A private-CA git host is trusted by
+  mounting its bundle and setting `GIT_SSL_CAINFO` — not by disabling
+  verification wholesale. See [`docs/self-host.md`](self-host.md).
+- **Privilege escalation out of the container.** surgite clones
+  arbitrary remote repositories, which makes ingest the widest surface
+  in the image. Mitigated by not running it as root: the image creates
+  an unprivileged `surgite` system user and `entrypoint.sh` drops to it
+  with `setpriv` before migrations or the app start. The app binds port
+  8000, above the privileged range, so nothing in the request path
+  needs uid 0.
 
 What we're NOT defending against:
 
@@ -66,7 +77,8 @@ What we're NOT defending against:
   bypassable. This is standard for any reverse-proxied app.
 - **A compromised local user.** A user with shell on the host can
   read `.secrets_key` (chmod 600, owned by the API process) and
-  derive the master. Run the app as a dedicated user.
+  derive the master. The container already runs as an unprivileged
+  `surgite` user; a bare-metal install should use a dedicated user too.
 - **A compromised Postgres backup.** Backups contain the
   `provider_keys` ciphertext + the audit log + the (now
   de-revoked) `api_keys` argon2id hashes. Treat backup files
@@ -115,9 +127,8 @@ behind Traefik + fail2ban as the project docs already recommend.
 
 argon2id with library defaults (the parameters are tuned by the
 `argon2-cffi` maintainers, not by us; they're already a safe modern
-configuration). The 0.5.0 plan called for tuning to ~250 ms on the
-target server; that tuning is a follow-up once there's a real box
-to measure against.
+configuration). Tuning the cost parameters to ~250 ms on the target
+server remains a follow-up, once there's a real box to measure against.
 
 ## API keys
 
@@ -147,7 +158,7 @@ on every restart, so dev workflows with a passphrase work fine.
 
 ## Audit log
 
-`audit_log` table (slice 2 plan #75). `actor_id` is nullable so
+`audit_log` table. `actor_id` is nullable so
 pre-auth events (login failures, invite redemptions) can be
 recorded. Read access: `GET /admin/audit` (admin-only, paginated,
 filterable by `since` and `action`).
@@ -176,35 +187,31 @@ user-facing request).
   backs up `provider_keys` and `audit_log`. `.secrets_key` is
   NOT backed up by the script — keep it in a separate, encrypted
   backup (it IS the encryption key for the at-rest data).
-- **Key rotation**: `scripts/rotate-secrets.sh` (slice 2 plan
-  #74). The script is idempotent on a single run; you need a
+- **Key rotation**: `scripts/rotate-secrets.sh`. The script is
+  idempotent on a single run; you need a
   restart to load the new master into the running process.
 - **Lockout recovery**: an admin can unlock a user via
   `POST /admin/users/{id}/unlock`.
-- **Password reset**: admin uses `POST /admin/users/{id}/reset-password`
-  to mint a one-time token, delivers the token out of band, the user
-  redeems it at `POST /auth/password-reset/confirm`. 15-minute expiry.
-  Email-delivered reset is a 0.6.0 follow-up.
+- **Password reset**: two ways in. Self-serve,
+  `POST /auth/password-reset` emails the user a link (configured by the
+  `SMTP_*` env vars; with `SMTP_HOST` unset the mailer writes the link to
+  the log stream instead, so reset works before mail is set up).
+  Admin-mediated, `POST /admin/users/{id}/reset-password` mints a token to
+  deliver out of band when the user cannot receive mail. Both redeem at
+  `POST /auth/password-reset/confirm`; 15-minute expiry.
 - **Reading the audit log**: `GET /admin/audit?action=auth.login.fail`
   shows every failed login. `?since=2026-06-20T00:00:00` filters
   by time.
 
 ## Known limitations
 
-These are 0.6.0+ work, deliberately deferred:
+Deliberately deferred:
 
-- **OIDC / SSO** (slice 3 of the plan). The auth backend is
-  designed so OIDC can replace just the multi_user branch of
-  `get_current_user`.
-- **Org / team model**. 0.5.0 is user-scoped, not org-scoped.
-- **Email-delivered password reset**. Admin-mediated reset
-  (`POST /admin/users/{id}/reset-password` + `POST /auth/password-reset/confirm`)
-  ships in 0.5.0 slice 3 (issue #77); the email-delivery story is the
-  remaining 0.6.0 piece.
-- **Rate limit on `/auth/login` (per-user)**. The plan calls for
-  a separate per-user login rate limit on top of the lockout;
-  slice 2 ships lockout only (the lockout covers the credential
-  stuffing case and the per-IP outer covers the fresh-signup
-  case). A per-user login rate limit can be added by reusing
-  `check_user_rate_limit(request, user_id=user.id, name="login")`
-  if it turns out to be needed.
+- **OIDC / SSO.** The auth backend is designed so OIDC can replace just
+  the multi_user branch of `get_current_user`, leaving the rest alone.
+- **Org / team model.** surgite is user-scoped, not org-scoped.
+- **Rate limit on `/auth/login` (per-user).** Only account lockout ships.
+  Lockout covers the credential-stuffing case and the per-IP outer limit
+  covers the fresh-signup case, so a per-user login limit has not been
+  needed. It can be added by reusing
+  `check_user_rate_limit(request, user_id=user.id, name="login")`.

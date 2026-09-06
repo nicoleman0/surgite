@@ -13,7 +13,7 @@ settings, AI-written summaries, and shareable links to specific summary views.
 The CLI does the same for a local repo, no server needed. First-party auth,
 no third-party tracking.
 
-Lean principles: ~15 Python source files, one binary, no SPA framework, no
+Lean principles: ~17 Python source files, one binary, no SPA framework, no
 slowapi, no Celery, no Redis. Reads like a script.
 
 ## Quickstart

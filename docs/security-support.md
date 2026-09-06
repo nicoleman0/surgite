@@ -1,4 +1,4 @@
-# Security support policy — 0.6.0
+# Security support policy
 
 This document says which versions get security patches, how fast we
 respond to a report, and how fixes are published. It's the operational
@@ -9,22 +9,24 @@ companion to [`docs/security.md`](security.md) (the threat model) and
 
 Security fixes land on the latest release. Specifically:
 
-- **The latest minor** (e.g. 0.6.x) always gets security patches.
-- **The previous minor** (e.g. 0.5.x) gets security patches for **6
-  months after the next minor ships**. So when 0.7.0 ships, 0.6.x is
+- **The latest minor** (e.g. 1.3.x) always gets security patches.
+- **The previous minor** (e.g. 1.2.x) gets security patches for **6
+  months after the next minor ships**. So when 1.4.0 ships, 1.3.x is
   supported for a further 6 months; after that, upgrade to stay covered.
 - Older minors are end-of-life — no backports.
 
-Pre-1.0, this is best-effort and the surface is still small enough that
-"upgrade to the latest minor" is almost always the right answer. The
-6-month window exists so an operator who pinned a version isn't forced
-into a same-week upgrade to get a fix.
+The surface is small enough that "upgrade to the latest minor" is almost
+always the right answer. The 6-month window exists so an operator who
+pinned a version isn't forced into a same-week upgrade to get a fix.
 
 | Version | Status |
 |---------|--------|
-| 0.6.x | Supported (latest minor) |
-| 0.5.x | Supported until 6 months after 0.7.0 |
-| ≤ 0.4.x | End-of-life |
+| 1.3.x | Supported (latest minor) |
+| 1.2.x | Supported until 6 months after 1.4.0 |
+| ≤ 1.1.x | End-of-life |
+
+This table is updated as part of cutting a release; see
+[`RELEASING.md`](../RELEASING.md).
 
 ## Reporting a vulnerability
 

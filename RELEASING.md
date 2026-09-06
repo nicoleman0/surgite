@@ -33,12 +33,16 @@ locally; move it to a branch rather than trying to force it through.
    far has left it as-is.
 7. Move the `[Unreleased]` entries in `CHANGELOG.md` under the new version,
    with a date.
-8. If the release changes the install story (the first PyPI release, a
+8. For a minor or major bump, roll the supported-versions table in
+   [`docs/security-support.md`](docs/security-support.md) forward: the new
+   version becomes the latest minor, the one it replaces moves into the
+   6-month window, and the one below that goes end-of-life.
+9. If the release changes the install story (the first PyPI release, a
    rename, new badges): refresh the README — the `pip install surgite` line
    and the PyPI badges.
-9. Open the PR, let CI go green, merge. Then tag from `main`:
+10. Open the PR, let CI go green, merge. Then tag from `main`:
    `git tag -a vX.Y.Z -m 'vX.Y.Z'`, and push the tag.
-10. Cut a GitHub release from the tag (notes: a summary plus a CHANGELOG
+11. Cut a GitHub release from the tag (notes: a summary plus a CHANGELOG
     link). Publishing is automatic from there — see below.
 
 ## Version numbering

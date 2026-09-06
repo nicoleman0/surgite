@@ -1,4 +1,4 @@
-# API stability policy — 0.6.0
+# API stability policy
 
 This document is the contract for the surgite HTTP API. It says what
 we promise not to break, what we reserve the right to change, and how
@@ -7,16 +7,17 @@ onward — the release that froze the surface.
 
 The machine-readable companion is [`docs/openapi.json`](openapi.json): a
 snapshot-tested OpenAPI document regenerated from the running app on
-every change. A CI gate (`.forgejo/workflows/openapi-snapshot.yml`) fails
-any PR that changes the surface without updating the snapshot, so "did
-this break the API?" is a checkable question, not a judgement call.
+every change. A CI gate (the `snapshot` job in
+[`.github/workflows/ci.yml`](../.github/workflows/ci.yml)) fails any PR
+that changes the surface without updating the snapshot, so "did this
+break the API?" is a checkable question, not a judgement call.
 
 Versioning is [SemVer](https://semver.org). "Minor" means the middle
-number (0.6 → 0.7); "major" means the first (0.x → 1.0).
+number (1.3 → 1.4); "major" means the first (1.x → 2.0).
 
 ## What we promise not to break in a minor release
 
-Within a minor series, and across minor bumps (0.6 → 0.7 → 0.8), these
+Within a minor series, and across minor bumps (1.3 → 1.4 → 1.5), these
 stay stable:
 
 - **Route paths and HTTP methods.** `GET /commits` stays `GET /commits`.
@@ -66,9 +67,9 @@ These are explicitly *not* part of the contract. Don't build on them:
 
 When a breaking change can't be avoided, it lands on a major bump with:
 
-- **A 6-month overlap window.** The previous major keeps getting security
-  patches for 6 months after the new major ships. See
-  [`docs/security-support.md`](security-support.md).
+- **A continued-support window** for the previous release line, on the
+  terms set out in [`docs/security-support.md`](security-support.md) —
+  that document is the single source of truth for what is still patched.
 - **A written migration guide**, in the style of
   [`docs/migrations/0.4.0-to-0.5.0.md`](migrations/0.4.0-to-0.5.0.md).
 
@@ -81,15 +82,15 @@ disappearing:
    [`CHANGELOG.md`](../CHANGELOG.md) for the release that deprecates it,
    with the planned removal version.
 2. It keeps working for **at least one full minor release** after the one
-   that deprecates it. Concretely: something deprecated in 0.6.0 is
-   removed no earlier than 0.8.0.
+   that deprecates it. Concretely: something deprecated in 1.4.0 is
+   removed no earlier than 1.6.0.
 3. The CHANGELOG is the source of truth — read the last few
    `### Deprecated` sections and you know exactly what's going away and
    when.
 
-The first entry under this procedure is the `STANDUP_API_TOKEN` →
-`STANDUP_API_KEY` environment-variable rename, scheduled for removal in
-0.8.0 (it already logs a deprecation warning when used).
+No deprecations are currently open. The last one to run this cycle was
+the `STANDUP_*` → `SURGITE_*` environment-variable rename, completed in
+1.0.0; nothing in the source refers to the old names any more.
 
 ## What we promise never
 

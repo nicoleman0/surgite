@@ -134,10 +134,10 @@ send a PR whose diff is mostly reflow.
 
 ## The CI gates
 
-Every pull request, and every push to `main`, runs five jobs, all of which
+Every pull request, and every push to `main`, runs six jobs, all of which
 must be green
 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). They are split by
-concern so that one failure still leaves you the other four results:
+concern so that one failure still leaves you the other five results:
 
 | Gate | What it runs | Described in |
 | --- | --- | --- |
@@ -146,6 +146,7 @@ concern so that one failure still leaves you the other four results:
 | `audit` | `pip-audit` | below |
 | `frontend` | `npm run check` (svelte-check: types + a11y), `npm run test`, `npm run build` | [Frontend](#frontend) |
 | `snapshot` | `task openapi-snapshot-check` | [The OpenAPI snapshot](#the-openapi-snapshot) |
+| `image` | `docker build`, then boots the compose stack and checks the container runs unprivileged | below |
 
 `uv lock --check` is the one that surprises people: if you touch
 `pyproject.toml` at all — including the version — run `uv lock` and commit the
