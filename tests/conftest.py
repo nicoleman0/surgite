@@ -101,6 +101,17 @@ def _reset_rate_limit_buckets():
     rate_limit._reset_for_tests()
 
 
+@pytest.fixture(autouse=True)
+def _reset_active_ingests():
+    from surgite import api
+
+    with api._active_ingests_lock:
+        api._active_ingests.clear()
+    yield
+    with api._active_ingests_lock:
+        api._active_ingests.clear()
+
+
 @pytest.fixture
 def client():
     return TestClient(app)

@@ -68,6 +68,7 @@ CLI:  git.get_raw_log()  →  git.parse_log()  →  formatter.format_log()  → 
                                                                         ↘  summarizer.summarize_commits()  →  LLM provider
 
 API:  POST /repos  →  create repo + per-repo BackgroundTask ingest (clone/fetch + git log → CommitRow upsert)
+      POST /repos/{id}/ingest → owner-scoped manual BackgroundTask ingest (409 if already active)
       (lifespan)  →  background asyncio task runs _ingest_all_repos() every INGEST_INTERVAL seconds
       GET /summary  →  SQLAlchemy query (pure read; freshness owned by the scheduler above)  →  JSON
       GET /summary?ai=true[&provider=]  →  formatter.format_log  →  summarizer (async, httpx)  →  LLM provider (rate-limited)
@@ -85,7 +86,7 @@ API:  POST /repos  →  create repo + per-repo BackgroundTask ingest (clone/fetc
 - `surgite/db.py` — SQLAlchemy engine, `Base`, ORM models: `CommitRow`, `RepoRow`, `PromptSettingsRow` (now with a nullable `repo_id` FK — one row per repo plus a global `NULL` row), `SharedSummaryRow` (slug → params JSON + expiry), and the `get_session()` factory
 - `surgite/schemas.py` — Pydantic request models (`RepoCreate`, `PromptSettingsUpdate`, `ShareCreate`)
 - `surgite/api.py` — FastAPI app with routes:
-  - `POST /repos` — creates a repo and immediately ingests it as a `BackgroundTask` (clone + git log → CommitRow upsert); ingest failures are logged but don't block creation. A lifespan-managed scheduler task also runs `_ingest_all_repos` every `INGEST_INTERVAL` seconds so the DB stays fresh without anyone hitting `/summary`
+  - `POST /repos` — creates a repo and immediately ingests it as a `BackgroundTask` (clone + git log → CommitRow upsert); ingest failures are logged but don't block creation. A lifespan-managed scheduler task also runs `_ingest_all_repos` every `INGEST_INTERVAL` seconds so the DB stays fresh without anyone hitting `/summary`. Completed outcomes populate `last_ingest_attempt_at` and `last_ingest_error`; successful completion also updates `last_ingested_at`. `POST /repos/{repo_id}/ingest` queues an owner-scoped manual sync, with a process-local reservation preventing duplicate work.
   - `GET /commits` — paginated list with `since`/`until`/`author`/`repo`/`limit`/`offset` filters
   - `GET /commits/{hash}` — lookup by full or prefix hash; 400 for invalid hex, 404 for not found, 409 for ambiguous prefix
   - `GET /summary` — async, pure read against the DB; aggregates by repo and day. `ai=true` runs the summarizer (capped at `AI_SUMMARY_MAX_COMMITS = 500` to bound token cost) behind per-user and per-IP-outer rate limits; optional `provider=` overrides the default; per-repo summaries use that repo's prompt settings, falling back to the global default. The raw `commits` list is omitted unless `commits=true`. Unknown provider or missing key → 400; provider HTTP failure → 502; rate limit exceeded → 429

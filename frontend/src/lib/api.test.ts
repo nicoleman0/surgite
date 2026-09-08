@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import.meta.env.VITE_API_BASE = 'http://api.test';
 
 // Dynamic import so the module evaluates with our env stubs in place.
-const { login, signup } = await import('./api');
+const { ingestRepo, login, signup } = await import('./api');
 
 const okBody = (body: unknown) =>
 	({
@@ -52,6 +52,15 @@ describe('request() — CSRF header', () => {
 		const init = fetchSpy.mock.calls[0][1] as RequestInit;
 		const headers = init.headers as Record<string, string>;
 		expect(headers['X-Requested-With']).toBeUndefined();
+	});
+
+	it('sends a CSRF-protected POST for manual repo sync', async () => {
+		fetchSpy.mockResolvedValueOnce(okBody({ accepted: true }));
+		await ingestRepo(42);
+		const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+		expect(url).toBe('http://api.test/repos/42/ingest');
+		expect(init.method).toBe('POST');
+		expect((init.headers as Record<string, string>)['X-Requested-With']).toBe('surgite-web');
 	});
 });
 

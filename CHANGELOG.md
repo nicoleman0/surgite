@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Repository responses now report the latest completed ingest attempt and a
+  safe failure message. Each repository row also offers a manual sync action;
+  `POST /repos/{repo_id}/ingest` queues owner-scoped work while the existing
+  scheduler remains responsible for routine freshness.
+
 ## [1.4.0] - 2026-09-06
 
 ### Changed

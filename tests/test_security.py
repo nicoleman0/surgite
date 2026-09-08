@@ -88,6 +88,7 @@ def test_every_documented_authed_route_requires_session(client, multi_user):
     Both responses are 'not allowed', which is what we care about."""
     authed_paths = [
         ("GET", "/repos"),
+        ("POST", "/repos/1/ingest"),
         ("GET", "/commits"),
         ("GET", "/commits/aaaaaaa"),
         ("GET", "/summary"),

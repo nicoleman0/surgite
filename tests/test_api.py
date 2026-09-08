@@ -203,6 +203,8 @@ def test_create_repo_returns_201(client):
     assert body["name"] == "repo"
     assert body["clone_url"] == "https://github.com/user/repo.git"
     assert body["last_ingested_at"] is None
+    assert body["last_ingest_attempt_at"] is None
+    assert body["last_ingest_error"] is None
     assert body["id"] is not None
 
 
@@ -245,6 +247,9 @@ def test_create_repo_runs_ingest_in_background(client, monkeypatch):
     assert r.status_code == 201
     assert r.json()["last_ingested_at"] is None
     assert len(calls) == 1
+    stored = client.get("/repos").json()["repos"][0]
+    assert stored["last_ingest_attempt_at"] == stored["last_ingested_at"]
+    assert stored["last_ingest_error"] is None
 
 
 def test_delete_repo(client, add_repo):
@@ -252,6 +257,29 @@ def test_delete_repo(client, add_repo):
     r = client.delete(f"/repos/{repo_id}")
     assert r.status_code == 204
     assert client.get("/repos").json()["repos"] == []
+
+
+def test_manual_ingest_returns_202(client, add_repo):
+    repo_id = add_repo()
+    r = client.post(f"/repos/{repo_id}/ingest")
+    assert r.status_code == 202
+    assert r.json() == {"accepted": True}
+    stored = client.get("/repos").json()["repos"][0]
+    assert stored["last_ingest_attempt_at"] == stored["last_ingested_at"]
+
+
+def test_manual_ingest_not_found_returns_404(client):
+    assert client.post("/repos/999/ingest").status_code == 404
+
+
+def test_manual_ingest_already_reserved_returns_409(client, add_repo):
+    from surgite import api as api_module
+
+    repo_id = add_repo()
+    assert api_module._claim_ingest(repo_id)
+    r = client.post(f"/repos/{repo_id}/ingest")
+    assert r.status_code == 409
+    assert r.json() == {"detail": "Ingest already in progress"}
 
 
 def test_delete_repo_not_found_returns_404(client):

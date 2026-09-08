@@ -11,6 +11,8 @@ export interface Repo {
 	clone_url: string;
 	added_at: string | null;
 	last_ingested_at: string | null;
+	last_ingest_attempt_at: string | null;
+	last_ingest_error: string | null;
 }
 
 export interface Commit {
@@ -114,12 +116,16 @@ export const resetPassword = (token: string, newPassword: string) =>
 		body: JSON.stringify({ token, new_password: newPassword })
 	});
 
-export const listRepos = () => request<{ repos: Repo[] }>('/repos').then((r) => r.repos);
+export const listRepos = (signal?: AbortSignal) =>
+	request<{ repos: Repo[] }>('/repos', { signal }).then((r) => r.repos);
 
 export const addRepo = (url: string) =>
 	request<Repo>('/repos', { method: 'POST', body: JSON.stringify({ url }) });
 
 export const deleteRepo = (id: number) => request<void>(`/repos/${id}`, { method: 'DELETE' });
+
+export const ingestRepo = (id: number) =>
+	request<{ accepted: boolean }>(`/repos/${id}/ingest`, { method: 'POST' });
 
 export interface SummaryParams {
 	repo?: string;

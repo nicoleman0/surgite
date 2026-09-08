@@ -193,6 +193,10 @@ class RepoRow(Base):
     last_ingested_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    last_ingest_attempt_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_ingest_error: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class PromptSettingsRow(Base):

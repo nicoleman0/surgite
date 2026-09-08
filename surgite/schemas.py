@@ -17,6 +17,24 @@ class RepoCreate(BaseModel):
     url: str
 
 
+class RepoResponse(BaseModel):
+    id: int
+    name: str
+    clone_url: str
+    added_at: datetime | None
+    last_ingested_at: datetime | None
+    last_ingest_attempt_at: datetime | None
+    last_ingest_error: str | None
+
+
+class RepoListResponse(BaseModel):
+    repos: list[RepoResponse]
+
+
+class IngestAccepted(BaseModel):
+    accepted: bool
+
+
 class ShareCreate(BaseModel):
     """Parameters of a summary to persist behind a shareable slug. Mirrors the
     /summary query string; all fields optional so a bare 'all repos, last 7

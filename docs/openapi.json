@@ -41,6 +41,19 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "IngestAccepted": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "accepted"
+        ],
+        "title": "IngestAccepted",
+        "type": "object"
+      },
       "InviteCreateRequest": {
         "description": "Create a new invite token. `email` is optional — an open invite\n(null email) can be redeemed by any new user; a pinned invite is\nlocked to one address. `role` is either ``\"user\"`` (default) or\n``\"admin\"``. The redeem token is returned in the response so the\nadmin can copy it out of band.",
         "properties": {
@@ -293,6 +306,96 @@
           "url"
         ],
         "title": "RepoCreate",
+        "type": "object"
+      },
+      "RepoListResponse": {
+        "properties": {
+          "repos": {
+            "items": {
+              "$ref": "#/components/schemas/RepoResponse"
+            },
+            "title": "Repos",
+            "type": "array"
+          }
+        },
+        "required": [
+          "repos"
+        ],
+        "title": "RepoListResponse",
+        "type": "object"
+      },
+      "RepoResponse": {
+        "properties": {
+          "added_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Added At"
+          },
+          "clone_url": {
+            "title": "Clone Url",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "last_ingest_attempt_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ingest Attempt At"
+          },
+          "last_ingest_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ingest Error"
+          },
+          "last_ingested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Ingested At"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "clone_url",
+          "added_at",
+          "last_ingested_at",
+          "last_ingest_attempt_at",
+          "last_ingest_error"
+        ],
+        "title": "RepoResponse",
         "type": "object"
       },
       "ShareCreate": {
@@ -1406,7 +1509,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RepoListResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -1444,7 +1549,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RepoResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -1497,6 +1604,49 @@
           }
         },
         "summary": "Delete a repo",
+        "tags": [
+          "repos"
+        ]
+      }
+    },
+    "/repos/{repo_id}/ingest": {
+      "post": {
+        "description": "Queue an ingest for a repository owned by the caller.",
+        "operationId": "ingest_repo",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "repo_id",
+            "required": true,
+            "schema": {
+              "title": "Repo Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestAccepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error: `{\"detail\": \"...\"}`."
+          }
+        },
+        "summary": "Sync a repo",
         "tags": [
           "repos"
         ]

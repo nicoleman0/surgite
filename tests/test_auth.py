@@ -306,6 +306,17 @@ def test_cannot_delete_another_users_repo(client, multi_user, add_repo):
     assert client.delete(f"/repos/{alice_repo}", headers=_cookie_header(bob_sid)).status_code == 404
 
 
+def test_cannot_ingest_another_users_repo(client, multi_user, add_repo):
+    alice = _make_user(email="alice@example.com")
+    bob = _make_user(email="bob@example.com")
+    alice_repo = add_repo(name="alice-repo", clone_url="https://example.com/a.git", owner_id=alice)
+    bob_sid = _make_session(bob)
+    assert (
+        client.post(f"/repos/{alice_repo}/ingest", headers=_cookie_header(bob_sid)).status_code
+        == 404
+    )
+
+
 # --- /providers admin gating ------------------------------------------------
 
 

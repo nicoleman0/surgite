@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import secrets
+import threading
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime, timedelta
@@ -69,6 +70,7 @@ from surgite.rate_limit import (
 from surgite.schemas import (
     ApiKeyCreate,
     ErrorResponse,
+    IngestAccepted,
     InviteCreateRequest,
     LoginRequest,
     PasswordChange,
@@ -78,6 +80,8 @@ from surgite.schemas import (
     ProviderKeysUpdate,
     RedeemInviteRequest,
     RepoCreate,
+    RepoListResponse,
+    RepoResponse,
     ShareCreate,
 )
 from surgite.secrets import encrypt
@@ -88,6 +92,24 @@ log = logging.getLogger(__name__)
 
 # Cap on commits sent to the LLM in /summary?ai=true to bound token cost.
 AI_SUMMARY_MAX_COMMITS = 500
+INGEST_ERROR = "Could not sync repository; check its URL and credentials."
+
+_active_ingests: set[int] = set()
+_active_ingests_lock = threading.Lock()
+
+
+def _claim_ingest(repo_id: int) -> bool:
+    """Atomically reserve a repo for ingestion in this process."""
+    with _active_ingests_lock:
+        if repo_id in _active_ingests:
+            return False
+        _active_ingests.add(repo_id)
+        return True
+
+
+def _release_ingest(repo_id: int) -> None:
+    with _active_ingests_lock:
+        _active_ingests.discard(repo_id)
 
 
 def _ingest_all_repos() -> list[dict]:
@@ -99,16 +121,12 @@ def _ingest_all_repos() -> list[dict]:
     seconds. Returns list of per-repo result/error dicts."""
     results: list[dict] = []
     with session_scope() as s:
-        repo_data = [
-            (r.id, r.name, r.clone_url, r.owner_id) for r in s.scalars(select(RepoRow)).all()
-        ]
+        repo_data = [(r.id, r.name) for r in s.scalars(select(RepoRow)).all()]
 
-    for repo_id, repo_name, clone_url, owner_id in repo_data:
-        try:
-            results.append(_ingest_repo(repo_id, repo_name, clone_url, owner_id))
-        except Exception as exc:
-            log.warning("Ingest failed for repo %s: %s", repo_name, exc, extra={"repo": repo_name})
-            results.append({"repo": repo_name, "error": str(exc)})
+    for repo_id, repo_name in repo_data:
+        if not _claim_ingest(repo_id):
+            continue
+        results.append(_run_ingest(repo_id, fallback_name=repo_name))
 
     return results
 
@@ -171,12 +189,45 @@ def _ingest_repo(
             else:
                 unchanged += 1
 
-        repo_row = s.get(RepoRow, repo_id)
-        if repo_row:
-            repo_row.last_ingested_at = now
         s.commit()
 
     return {"repo": repo_name, "inserted": inserted, "updated": updated, "unchanged": unchanged}
+
+
+def _run_ingest(repo_id: int, fallback_name: str | None = None) -> dict:
+    """Run one previously-reserved ingest and persist its completed outcome."""
+    repo_name = fallback_name or str(repo_id)
+    try:
+        with session_scope() as s:
+            repo = s.get(RepoRow, repo_id)
+            if repo is None:
+                return {"repo": repo_name, "skipped": "deleted"}
+            repo_name = repo.name
+            clone_url = repo.clone_url
+            owner_id = repo.owner_id
+
+        result = _ingest_repo(repo_id, repo_name, clone_url, owner_id)
+        completed_at = datetime.now(UTC)
+        with session_scope() as s:
+            repo = s.get(RepoRow, repo_id)
+            if repo is not None:
+                repo.last_ingest_attempt_at = completed_at
+                repo.last_ingested_at = completed_at
+                repo.last_ingest_error = None
+                s.commit()
+        return result
+    except Exception as exc:
+        completed_at = datetime.now(UTC)
+        with session_scope() as s:
+            repo = s.get(RepoRow, repo_id)
+            if repo is not None:
+                repo.last_ingest_attempt_at = completed_at
+                repo.last_ingest_error = INGEST_ERROR
+                s.commit()
+        log.warning("Ingest failed for repo %s: %s", repo_name, exc, extra={"repo": repo_name})
+        return {"repo": repo_name, "error": INGEST_ERROR}
+    finally:
+        _release_ingest(repo_id)
 
 
 def _delete_expired_summaries() -> int:
@@ -351,6 +402,10 @@ def _repo_to_dict(row: RepoRow) -> dict:
         "clone_url": row.clone_url,
         "added_at": row.added_at.isoformat() if row.added_at else None,
         "last_ingested_at": row.last_ingested_at.isoformat() if row.last_ingested_at else None,
+        "last_ingest_attempt_at": (
+            row.last_ingest_attempt_at.isoformat() if row.last_ingest_attempt_at else None
+        ),
+        "last_ingest_error": row.last_ingest_error,
     }
 
 
@@ -1776,7 +1831,13 @@ async def summary_stream(
     )
 
 
-@app.get("/repos", summary="List repos", tags=["repos"], operation_id="list_repos")
+@app.get(
+    "/repos",
+    response_model=RepoListResponse,
+    summary="List repos",
+    tags=["repos"],
+    operation_id="list_repos",
+)
 def list_repos(
     session: Session = Depends(get_db),
     current_user: UserRow = Depends(get_current_user),
@@ -1789,6 +1850,7 @@ def list_repos(
 @app.post(
     "/repos",
     status_code=201,
+    response_model=RepoResponse,
     summary="Register a repo",
     tags=["repos"],
     operation_id="create_repo",
@@ -1831,7 +1893,6 @@ def create_repo(
     session.commit()
     session.refresh(repo)
 
-    background.add_task(_ingest_repo, repo.id, name, req.url, current_user.id)
     audit(
         "repo.create",
         actor_id=current_user.id,
@@ -1841,7 +1902,33 @@ def create_repo(
         user_agent=request.headers.get("user-agent"),
         metadata={"name": name, "clone_url": req.url},
     )
+    _claim_ingest(repo.id)
+    background.add_task(_run_ingest, repo.id, name)
     return _repo_to_dict(repo)
+
+
+@app.post(
+    "/repos/{repo_id}/ingest",
+    status_code=202,
+    response_model=IngestAccepted,
+    summary="Sync a repo",
+    tags=["repos"],
+    operation_id="ingest_repo",
+)
+def ingest_repo(
+    repo_id: int,
+    background: BackgroundTasks,
+    session: Session = Depends(get_db),
+    current_user: UserRow = Depends(get_current_user),
+):
+    """Queue an ingest for a repository owned by the caller."""
+    repo = _owned_repo(session, repo_id, current_user.id)
+    if not repo:
+        raise HTTPException(status_code=404, detail="Repo not found")
+    if not _claim_ingest(repo_id):
+        raise HTTPException(status_code=409, detail="Ingest already in progress")
+    background.add_task(_run_ingest, repo_id, repo.name)
+    return {"accepted": True}
 
 
 @app.delete(
