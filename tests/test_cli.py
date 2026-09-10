@@ -82,3 +82,101 @@ def test_output_is_written_as_utf8(monkeypatch, tmp_path):
 
     assert {"encoding": "utf-8"} in open_kwargs
     assert out.read_text(encoding="utf-8") == summary
+
+
+def test_provider_flag_is_listed_in_help(capsys, monkeypatch):
+    """#66: --provider must be documented in CLI help."""
+    monkeypatch.setattr("sys.argv", ["surgite", "--help"])
+
+    with pytest.raises(SystemExit) as exc:
+        main()
+
+    assert exc.value.code == 0
+    assert "--provider" in capsys.readouterr().out
+
+
+def test_invalid_provider_fails_with_usage_error(capsys, monkeypatch):
+    """#66: Unknown provider fails as a concise CLI usage error."""
+    monkeypatch.setattr("sys.argv", ["surgite", "some/repo", "--provider", "not-a-real-provider"])
+
+    with pytest.raises(SystemExit) as exc:
+        main()
+
+    assert exc.value.code == 2
+    err = capsys.readouterr().err
+    assert "invalid choice: 'not-a-real-provider'" in err
+
+
+def test_provider_forwarded_to_local_summarize(monkeypatch):
+    """#66: Local summarization forwards the chosen provider to summarize_commits()."""
+    called = {}
+
+    def fake_summarize(summary, provider=None):
+        called["provider"] = provider
+        return "summarized"
+
+    monkeypatch.setattr("surgite.cli.get_raw_log", lambda *a, **kw: "")
+    monkeypatch.setattr("surgite.cli.parse_log", lambda raw: [])
+    monkeypatch.setattr("surgite.cli.format_log", lambda commits: "log")
+    monkeypatch.setattr("surgite.cli.summarize_commits", fake_summarize)
+    monkeypatch.setattr(sys, "argv", ["surgite", "some/repo", "--summarize", "--provider", "groq"])
+
+    main()
+
+    assert called.get("provider") == "groq"
+
+
+def test_provider_forwarded_to_registered_summary_params(monkeypatch):
+    """#66: --registered includes provider in /summary query params with --summarize."""
+    requested_params = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"ai_summaries": {"myrepo": {"summary": "ai summary"}}}
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        requested_params.update(params or {})
+        return FakeResponse()
+
+    monkeypatch.setattr("httpx.get", fake_get)
+    monkeypatch.setattr("surgite.cli_auth.auth_headers", lambda base: {})
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["surgite", "--registered", "myrepo", "--summarize", "--provider", "deepseek"],
+    )
+
+    main()
+
+    assert requested_params.get("ai") == "true"
+    assert requested_params.get("provider") == "deepseek"
+
+
+def test_provider_omitted_without_summarize_in_registered(monkeypatch):
+    """#66: --provider is irrelevant and omitted from params when --summarize is unset."""
+    requested_params = {}
+
+    class FakeResponse:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"log_by_repo": {"myrepo": "commit log"}}
+
+    def fake_get(url, params=None, headers=None, timeout=None):
+        requested_params.update(params or {})
+        return FakeResponse()
+
+    monkeypatch.setattr("httpx.get", fake_get)
+    monkeypatch.setattr("surgite.cli_auth.auth_headers", lambda base: {})
+    monkeypatch.setattr(
+        sys, "argv", ["surgite", "--registered", "myrepo", "--provider", "anthropic"]
+    )
+
+    main()
+
+    assert "ai" not in requested_params
+    assert "provider" not in requested_params
