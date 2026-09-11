@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { listRepos, type Repo } from '$lib/api';
 	import { RepoSyncManager } from '$lib/repo-sync';
+	import { nextTab } from '$lib/tabs';
 	import AddRepoForm from '$lib/components/AddRepoForm.svelte';
 	import HelpOverlay from '$lib/components/HelpOverlay.svelte';
 	import PromptSettings from '$lib/components/PromptSettings.svelte';
@@ -87,15 +88,9 @@
 	}
 
 	function handleWorkspaceKeydown(event: KeyboardEvent, current: Workspace) {
-		const index = WORKSPACES.indexOf(current);
-		let nextIndex: number | null = null;
-		if (event.key === 'ArrowLeft') nextIndex = (index - 1 + WORKSPACES.length) % WORKSPACES.length;
-		if (event.key === 'ArrowRight') nextIndex = (index + 1) % WORKSPACES.length;
-		if (event.key === 'Home') nextIndex = 0;
-		if (event.key === 'End') nextIndex = WORKSPACES.length - 1;
-		if (nextIndex === null) return;
+		const next = nextTab(current, event.key, WORKSPACES);
+		if (!next) return;
 		event.preventDefault();
-		const next = WORKSPACES[nextIndex];
 		workspace = next;
 		document.getElementById(`${next}-tab`)?.focus();
 	}

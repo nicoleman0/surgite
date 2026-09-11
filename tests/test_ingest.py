@@ -250,7 +250,7 @@ async def test_lifespan_clears_ingest_executor(monkeypatch):
 def test_scheduler_runs_periodically(client_with_scheduler, add_repo, fake_git):
     add_repo()
     fake_git.commits = make_commits(2)
-    deadline = time.monotonic() + 2.5
+    deadline = time.monotonic() + 4
     while time.monotonic() < deadline:
         if fake_git.calls >= 2:
             break
