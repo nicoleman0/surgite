@@ -103,14 +103,20 @@ def save_session(api_url: str, cookie_name: str, cookie_value: str) -> None:
 def load_session() -> dict | None:
     if not _keyring_available():
         return _read_session_file()
-    blob = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USER)
-    if blob is None:
-        legacy = keyring.get_password(_LEGACY_KEYRING_SERVICE, _KEYRING_USER)
-        if legacy is not None:
-            keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, legacy)
-            keyring.delete_password(_LEGACY_KEYRING_SERVICE, _KEYRING_USER)
-            print("Migrated CLI session from the old keyring service name.", file=sys.stderr)
-            blob = legacy
+    try:
+        blob = keyring.get_password(_KEYRING_SERVICE, _KEYRING_USER)
+        legacy = (
+            None
+            if blob is not None
+            else keyring.get_password(_LEGACY_KEYRING_SERVICE, _KEYRING_USER)
+        )
+    except keyring.errors.KeyringError:
+        return _read_session_file()
+    if legacy is not None:
+        keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, legacy)
+        keyring.delete_password(_LEGACY_KEYRING_SERVICE, _KEYRING_USER)
+        print("Migrated CLI session from the old keyring service name.", file=sys.stderr)
+        blob = legacy
     if blob is None:
         migrated = _read_session_file()
         if migrated is None:

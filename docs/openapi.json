@@ -41,6 +41,98 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "GitConnectionCreate": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "origin",
+          "username",
+          "token"
+        ],
+        "title": "GitConnectionCreate",
+        "type": "object"
+      },
+      "GitConnectionResponse": {
+        "properties": {
+          "affected_repositories": {
+            "title": "Affected Repositories",
+            "type": "integer"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "host",
+          "status",
+          "created_at",
+          "updated_at",
+          "affected_repositories"
+        ],
+        "title": "GitConnectionResponse",
+        "type": "object"
+      },
       "IngestAccepted": {
         "properties": {
           "accepted": {
@@ -361,8 +453,36 @@
         "title": "RedeemInviteRequest",
         "type": "object"
       },
+      "RepoConnectionUpdate": {
+        "properties": {
+          "connection_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connection Id"
+          }
+        },
+        "title": "RepoConnectionUpdate",
+        "type": "object"
+      },
       "RepoCreate": {
         "properties": {
+          "connection_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connection Id"
+          },
           "url": {
             "title": "Url",
             "type": "string"
@@ -420,6 +540,17 @@
             "title": "Clone Url",
             "type": "string"
           },
+          "connection_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connection Id"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -471,7 +602,8 @@
           "added_at",
           "last_ingested_at",
           "last_ingest_attempt_at",
-          "last_ingest_error"
+          "last_ingest_error",
+          "connection_id"
         ],
         "title": "RepoResponse",
         "type": "object"
@@ -1472,6 +1604,235 @@
         ]
       }
     },
+    "/connections": {
+      "get": {
+        "description": "List the caller's connection metadata without secret material.",
+        "operationId": "list_connections_connections_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GitConnectionResponse"
+                  },
+                  "title": "Response List Connections Connections Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error: `{\"detail\": \"...\"}`."
+          }
+        },
+        "summary": "List Git connections",
+        "tags": [
+          "connections"
+        ]
+      },
+      "post": {
+        "description": "Store a reusable HTTPS credential for the current user.",
+        "operationId": "create_connection_connections_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GitConnectionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitConnectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error: `{\"detail\": \"...\"}`."
+          }
+        },
+        "summary": "Create HTTPS token connection",
+        "tags": [
+          "connections"
+        ]
+      }
+    },
+    "/connections/github/callback": {
+      "get": {
+        "operationId": "github_callback_connections_github_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": true,
+            "schema": {
+              "title": "State",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error: `{\"detail\": \"...\"}`."
+          }
+        },
+        "summary": "Complete GitHub connection",
+        "tags": [
+          "connections"
+        ]
+      }
+    },
+    "/connections/github/start": {
+      "get": {
+        "operationId": "github_start_connections_github_start_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error: `{\"detail\": \"...\"}`."
+          }
+        },
+        "summary": "Start GitHub connection",
+        "tags": [
+          "connections"
+        ]
+      }
+    },
+    "/connections/{connection_id}": {
+      "delete": {
+        "operationId": "disconnect_connection_connections__connection_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error: `{\"detail\": \"...\"}`."
+          }
+        },
+        "summary": "Disconnect Git connection",
+        "tags": [
+          "connections"
+        ]
+      }
+    },
+    "/connections/{connection_id}/repositories": {
+      "get": {
+        "operationId": "list_github_repositories_connections__connection_id__repositories_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error: `{\"detail\": \"...\"}`."
+          }
+        },
+        "summary": "List GitHub repositories",
+        "tags": [
+          "connections"
+        ]
+      }
+    },
     "/health": {
       "get": {
         "description": "Check process liveness and database readiness.",
@@ -1698,6 +2059,58 @@
           }
         },
         "summary": "Delete a repo",
+        "tags": [
+          "repos"
+        ]
+      }
+    },
+    "/repos/{repo_id}/connection": {
+      "put": {
+        "operationId": "set_repo_connection_repos__repo_id__connection_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "repo_id",
+            "required": true,
+            "schema": {
+              "title": "Repo Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RepoConnectionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Error: `{\"detail\": \"...\"}`."
+          }
+        },
+        "summary": "Set repo connection",
         "tags": [
           "repos"
         ]

@@ -40,8 +40,13 @@ deployment guide is [docs/self-host.md](docs/self-host.md).
 - Per-user repositories, prompt settings, summaries, and shared links
 - Local CLI or a self-hosted FastAPI/Postgres/SvelteKit application
 - Anthropic, Groq, DeepSeek, or OpenAI-compatible local models
-- Email/password auth, API keys, encrypted per-user provider keys, and audit logs
-- Streamed AI summaries and scheduled repository sync
+- Email/password auth, API keys, encrypted per-user provider keys, Git connections, and audit logs
+
+## Private repositories
+
+Add an HTTPS Git connection in **Settings** with a credential-free origin, username, and
+read-only access token. Surgite encrypts it at rest and only supplies it to Git through a
+non-interactive askpass helper. Never paste credentials into a repository URL.
 
 ## Documentation
 

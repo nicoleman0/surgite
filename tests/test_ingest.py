@@ -24,7 +24,9 @@ def fake_git(monkeypatch):
     rec = Recorder()
     monkeypatch.setattr(
         "surgite.git.ensure_repo",
-        lambda name, url, cache, timeout=120: rec.ensured.append(name) or f"/fake/{name}",
+        lambda name, url, cache, timeout=120, *args, **kwargs: (
+            rec.ensured.append(name) or f"/fake/{name}"
+        ),
     )
 
     def fake_get_raw_log(*a, **kw):
@@ -71,7 +73,7 @@ def test_ingest_all_repos_visits_every_registered_repo(add_repo, fake_git):
     assert set(by_name) == {"a", "b"}
     assert "inserted" in by_name["a"]
     assert "inserted" in by_name["b"] or "updated" in by_name["b"]
-    assert sorted(fake_git.ensured) == ["a", "b"]
+    assert sorted(fake_git.ensured) == ["1", "2"]
 
 
 def test_ingest_keeps_shared_commit_for_each_repository(add_repo, fake_git):
@@ -127,7 +129,7 @@ def test_ingest_all_repos_continues_after_one_repo_fails(add_repo, fake_git, mon
     add_repo(name="bad", clone_url="https://example.com/bad.git")
 
     def selective_get_raw_log(path, *a, **kw):
-        if path.endswith("/bad"):
+        if path.endswith("/2"):
             raise RuntimeError("simulated git failure")
         return ""
 
@@ -185,7 +187,7 @@ def test_scheduler_skips_reserved_repo_and_continues(add_repo, fake_git):
     results = api._ingest_all_repos()
 
     assert [result["repo"] for result in results] == ["free"]
-    assert fake_git.ensured == ["free"]
+    assert fake_git.ensured == ["2"]
     api._release_ingest(busy_id)
 
 

@@ -9,6 +9,18 @@ export interface Repo {
 	last_ingested_at: string | null;
 	last_ingest_attempt_at: string | null;
 	last_ingest_error: string | null;
+	connection_id?: string | null;
+}
+
+export interface GitConnection {
+	id: string;
+	name: string;
+	kind: 'token' | 'github';
+	host: string;
+	status: 'connected' | 'disconnected';
+	created_at: string | null;
+	updated_at: string | null;
+	affected_repositories: number;
 }
 
 export interface RepoList {
@@ -111,13 +123,28 @@ export const resetPassword = (token: string, newPassword: string) =>
 
 export const listRepos = (signal?: AbortSignal) => request<RepoList>('/repos', { signal });
 
-export const addRepo = (url: string) =>
-	request<Repo>('/repos', { method: 'POST', body: JSON.stringify({ url }) });
+export const addRepo = (url: string, connection_id?: string | null) =>
+	request<Repo>('/repos', { method: 'POST', body: JSON.stringify({ url, connection_id }) });
 
 export const deleteRepo = (id: number) => request<void>(`/repos/${id}`, { method: 'DELETE' });
 
 export const ingestRepo = (id: number) =>
 	request<{ accepted: boolean }>(`/repos/${id}/ingest`, { method: 'POST' });
+
+export const listConnections = () => request<GitConnection[]>('/connections');
+
+export const createTokenConnection = (connection: { name: string; origin: string; username: string; token: string }) =>
+	request<GitConnection>('/connections', { method: 'POST', body: JSON.stringify(connection) });
+
+export const disconnectConnection = (id: string) => request<void>(`/connections/${id}`, { method: 'DELETE' });
+
+export const githubConnectionStart = () => request<{ url: string }>('/connections/github/start');
+
+export const listGithubRepositories = (id: string) =>
+	request<{ repositories: { name: string; url: string }[] }>(`/connections/${id}/repositories`);
+
+export const setRepoConnection = (repoId: number, connection_id: string | null) =>
+	request<Repo>(`/repos/${repoId}/connection`, { method: 'PUT', body: JSON.stringify({ connection_id }) });
 
 export interface SummaryParams {
 	repo?: string;

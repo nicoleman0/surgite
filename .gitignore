@@ -6,6 +6,7 @@ dist/
 build/
 .env
 .vscode/
+.agents/
 .DS_Store
 testing.py
 repos.txt

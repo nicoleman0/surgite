@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { deleteRepo, type Repo } from '$lib/api';
+	import { deleteRepo, setRepoConnection, type GitConnection, type Repo } from '$lib/api';
 	import { relativeTime } from '$lib/time';
 	import { toasts } from '$lib/toast.svelte';
 	import Skeleton from './Skeleton.svelte';
@@ -10,6 +10,7 @@
 		error,
 		onChanged,
 		syncingIds,
+		connections,
 		onSync
 	}: {
 		repos: Repo[];
@@ -17,10 +18,17 @@
 		error: string | null;
 		onChanged: () => void;
 		syncingIds: Set<number>;
+		connections: GitConnection[];
 		onSync: (repos: Repo[]) => void;
 	} = $props();
 
 	let deletingId = $state<number | null>(null);
+	async function updateConnection(repo: Repo, event: Event) {
+		try {
+			await setRepoConnection(repo.id, (event.currentTarget as HTMLSelectElement).value || null);
+			onChanged();
+		} catch (cause) { toasts.error(cause instanceof Error ? cause.message : 'failed to update connection'); }
+	}
 
 	async function handleDelete(id: number) {
 		deletingId = id;
@@ -57,6 +65,13 @@
 							<span aria-hidden="true">↗</span>
 							<span class="truncate">{repo.clone_url}</span>
 						</p>
+						<select value={repo.connection_id ?? ''} onchange={(event) => updateConnection(repo, event)} class="mt-1 border border-border bg-bg px-1 py-0.5 text-xs text-fg-muted">
+							<option value="">no saved connection</option>
+							{#each connections as connection}<option value={connection.id} disabled={connection.status !== 'connected'}>{connection.name} ({connection.status})</option>{/each}
+						</select>
+						{#if repo.connection_id && connections.find((connection) => connection.id === repo.connection_id)?.status === 'disconnected'}
+							<p class="mt-1 text-xs text-err">connection required</p>
+						{/if}
 						{#if syncingIds.has(repo.id)}
 							<p class="mt-1 text-xs text-accent">syncing…</p>
 						{:else if repo.last_ingest_error}

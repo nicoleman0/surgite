@@ -11,12 +11,14 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
+from functools import partial
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -50,10 +52,21 @@ from surgite.auth import (
     verify_password,
 )
 from surgite.config import SHARE_TTL_DAYS
+from surgite.connections import (
+    _encrypt_secret,
+    connection_to_dict,
+    consume_github_state,
+    github_repositories,
+    github_token,
+    repo_credentials,
+    start_github_authorization,
+    token_host,
+)
 from surgite.db import (
     ApiKeyRow,
     AuditLogRow,
     CommitRow,
+    GitConnectionRow,
     InviteRow,
     PromptSettingsRow,
     ProviderKeyRow,
@@ -64,7 +77,7 @@ from surgite.db import (
     session_scope,
 )
 from surgite.formatter import format_log
-from surgite.git import get_raw_log, ls_remote, parse_log
+from surgite.git import GitCredentials, get_raw_log, ls_remote, parse_log
 from surgite.logging_config import configure_logging
 from surgite.models import Commit
 from surgite.rate_limit import (
@@ -74,6 +87,8 @@ from surgite.rate_limit import (
 from surgite.schemas import (
     ApiKeyCreate,
     ErrorResponse,
+    GitConnectionCreate,
+    GitConnectionResponse,
     IngestAccepted,
     InviteCreateRequest,
     LoginRequest,
@@ -84,6 +99,7 @@ from surgite.schemas import (
     ProviderKeysResponse,
     ProviderKeysUpdate,
     RedeemInviteRequest,
+    RepoConnectionUpdate,
     RepoCreate,
     RepoListResponse,
     RepoResponse,
@@ -149,12 +165,15 @@ def _ingest_repo(
     since: date | None = None,
     until: date | None = None,
     session: Session | None = None,
+    credentials: GitCredentials | None = None,
 ) -> dict:
     """Ingest commits for one repo."""
     from surgite.config import REPO_CACHE_DIR
     from surgite.git import ensure_repo
 
-    actual_path = ensure_repo(repo_name, clone_url, REPO_CACHE_DIR, config.GIT_TIMEOUT_SECONDS)
+    actual_path = ensure_repo(
+        str(repo_id), clone_url, REPO_CACHE_DIR, config.GIT_TIMEOUT_SECONDS, credentials
+    )
 
     since_str = (since or date.today() - timedelta(days=7)).isoformat()
     until_str = (until or date.today()).isoformat()
@@ -212,8 +231,9 @@ def _run_ingest(repo_id: int, fallback_name: str | None = None) -> dict:
             repo_name = repo.name
             clone_url = repo.clone_url
             owner_id = repo.owner_id
+            credentials = repo_credentials(repo, s)
 
-        result = _ingest_repo(repo_id, repo_name, clone_url, owner_id)
+        result = _ingest_repo(repo_id, repo_name, clone_url, owner_id, credentials=credentials)
         completed_at = datetime.now(UTC)
         with session_scope() as s:
             repo = s.get(RepoRow, repo_id)
@@ -395,6 +415,7 @@ def _repo_to_dict(row: RepoRow) -> dict:
             row.last_ingest_attempt_at.isoformat() if row.last_ingest_attempt_at else None
         ),
         "last_ingest_error": row.last_ingest_error,
+        "connection_id": row.connection_id,
     }
 
 
@@ -402,6 +423,22 @@ def _owned_repo(session: Session, repo_id: int, owner_id: str) -> RepoRow | None
     """Return an owned repo without revealing cross-owner rows."""
     repo = session.get(RepoRow, repo_id)
     return repo if repo is not None and repo.owner_id == owner_id else None
+
+
+def _owned_connection(
+    session: Session, connection_id: str, owner_id: str
+) -> GitConnectionRow | None:
+    row = session.get(GitConnectionRow, connection_id)
+    return row if row is not None and row.owner_id == owner_id else None
+
+
+def _usable_connection(session: Session, connection_id: str, owner_id: str) -> GitConnectionRow:
+    row = _owned_connection(session, connection_id, owner_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    if row.disconnected_at is not None:
+        raise HTTPException(status_code=409, detail="Connection required")
+    return row
 
 
 def _row_to_dict(row: CommitRow) -> dict:
@@ -514,7 +551,10 @@ async def health_deep(
     else:
         loop = asyncio.get_running_loop()
         try:
-            await loop.run_in_executor(None, ls_remote, repo.clone_url)
+            credentials = repo_credentials(repo, session)
+            await loop.run_in_executor(
+                None, partial(ls_remote, repo.clone_url, credentials=credentials)
+            )
             components["git"] = "ok"
         except Exception as exc:
             log.warning("Deep health git probe failed: %s", exc, extra={"repo": repo.name})
@@ -1851,6 +1891,164 @@ async def summary_stream(
 
 
 @app.get(
+    "/connections",
+    response_model=list[GitConnectionResponse],
+    summary="List Git connections",
+    tags=["connections"],
+)
+def list_connections(
+    session: Session = Depends(get_db), current_user: UserRow = Depends(get_current_user)
+):
+    """List the caller's connection metadata without secret material."""
+    rows = session.scalars(
+        select(GitConnectionRow)
+        .where(GitConnectionRow.owner_id == current_user.id)
+        .order_by(GitConnectionRow.name)
+    ).all()
+    return [connection_to_dict(row, session) for row in rows]
+
+
+@app.post(
+    "/connections",
+    status_code=201,
+    response_model=GitConnectionResponse,
+    summary="Create HTTPS token connection",
+    tags=["connections"],
+)
+def create_connection(
+    req: GitConnectionCreate,
+    session: Session = Depends(get_db),
+    current_user: UserRow = Depends(get_current_user),
+):
+    """Store a reusable HTTPS credential for the current user."""
+    name = req.name.strip()
+    if not name or not req.username.strip() or not req.token.strip():
+        raise HTTPException(status_code=400, detail="Name, username, and token are required")
+    try:
+        host = token_host(req.origin)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    existing = session.scalar(
+        select(GitConnectionRow).where(
+            GitConnectionRow.owner_id == current_user.id, GitConnectionRow.name == name
+        )
+    )
+    if existing and (existing.kind != "token" or existing.disconnected_at is None):
+        raise HTTPException(status_code=409, detail="A connection with this name already exists")
+    row = existing or GitConnectionRow(
+        owner_id=current_user.id, org_id=current_user.personal_org_id, name=name, kind="token"
+    )
+    row.host = host
+    row.encrypted_secret = _encrypt_secret(
+        {
+            "origin": req.origin.rstrip("/"),
+            "username": req.username.strip(),
+            "token": req.token.strip(),
+        }
+    )
+    row.disconnected_at = None
+    row.updated_at = datetime.now(UTC)
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    audit(
+        "connection.create",
+        actor_id=current_user.id,
+        target_type="connection",
+        target_id=row.id,
+        metadata={"kind": "token", "host": host},
+    )
+    return connection_to_dict(row, session)
+
+
+@app.delete(
+    "/connections/{connection_id}",
+    status_code=204,
+    summary="Disconnect Git connection",
+    tags=["connections"],
+)
+def disconnect_connection(
+    connection_id: str,
+    session: Session = Depends(get_db),
+    current_user: UserRow = Depends(get_current_user),
+):
+    row = _owned_connection(session, connection_id, current_user.id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    row.encrypted_secret = None
+    row.disconnected_at = row.updated_at = datetime.now(UTC)
+    session.commit()
+
+
+@app.get("/connections/github/start", summary="Start GitHub connection", tags=["connections"])
+def github_start(
+    session: Session = Depends(get_db), current_user: UserRow = Depends(get_current_user)
+):
+    try:
+        state = start_github_authorization(current_user.id, session)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return {
+        "url": f"https://github.com/login/oauth/authorize?client_id={config.GITHUB_APP_CLIENT_ID}&state={state}"
+    }
+
+
+@app.get("/connections/github/callback", summary="Complete GitHub connection", tags=["connections"])
+def github_callback(
+    code: str,
+    state: str,
+    session: Session = Depends(get_db),
+    current_user: UserRow = Depends(get_current_user),
+):
+    try:
+        consume_github_state(state, current_user.id, session)
+        secret = github_token(code=code)
+    except (ValueError, httpx.HTTPError) as exc:
+        raise HTTPException(status_code=400, detail="GitHub authorisation failed") from exc
+    name, number = "GitHub", 2
+    while session.scalar(
+        select(GitConnectionRow).where(
+            GitConnectionRow.owner_id == current_user.id, GitConnectionRow.name == name
+        )
+    ):
+        name, number = f"GitHub {number}", number + 1
+    row = GitConnectionRow(
+        owner_id=current_user.id,
+        org_id=current_user.personal_org_id,
+        name=name,
+        kind="github",
+        host="github.com",
+        encrypted_secret=_encrypt_secret(secret),
+    )
+    session.add(row)
+    session.commit()
+    return RedirectResponse(url=f"{config.PUBLIC_URL or ''}/?github_connected=1", status_code=303)
+
+
+@app.get(
+    "/connections/{connection_id}/repositories",
+    summary="List GitHub repositories",
+    tags=["connections"],
+)
+def list_github_repositories(
+    connection_id: str,
+    session: Session = Depends(get_db),
+    current_user: UserRow = Depends(get_current_user),
+):
+    row = _owned_connection(session, connection_id, current_user.id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Connection not found")
+    if row.kind != "github":
+        raise HTTPException(status_code=400, detail="Connection is not GitHub")
+    try:
+        return {"repositories": github_repositories(row, session)}
+    except (RuntimeError, httpx.HTTPError) as exc:
+        raise HTTPException(
+            status_code=409, detail="GitHub connection requires reconnection"
+        ) from exc
+
+
+@app.get(
     "/repos",
     response_model=RepoListResponse,
     summary="List repos",
@@ -1897,17 +2095,31 @@ def create_repo(
         )
     name = _repo_name_from_url(req.url)
 
-    existing = session.scalar(select(RepoRow).where(RepoRow.clone_url == req.url))
+    parsed = urlparse(req.url)
+    if parsed.username or parsed.password:
+        raise HTTPException(status_code=400, detail="Repository URLs must not contain credentials")
+    existing = session.scalar(
+        select(RepoRow).where(RepoRow.clone_url == req.url, RepoRow.owner_id == current_user.id)
+    )
     if existing:
         raise HTTPException(status_code=409, detail="Repo already registered")
-    if session.scalar(select(RepoRow).where(RepoRow.name == name)):
+    if session.scalar(
+        select(RepoRow).where(RepoRow.name == name, RepoRow.owner_id == current_user.id)
+    ):
         raise HTTPException(status_code=409, detail="A repo with this name already exists")
+    if req.connection_id:
+        connection = _usable_connection(session, req.connection_id, current_user.id)
+        if parsed.scheme != "https" or parsed.netloc.lower() != connection.host:
+            raise HTTPException(
+                status_code=400, detail="Connection credentials do not match this HTTPS repository"
+            )
     repo = RepoRow(
         name=name,
         clone_url=req.url,
         owner_id=current_user.id,
         org_id=current_user.personal_org_id,
         added_at=datetime.now(UTC),
+        connection_id=req.connection_id or None,
     )
     session.add(repo)
     session.commit()
@@ -1924,6 +2136,29 @@ def create_repo(
     )
     _claim_ingest(repo.id)
     _submit_ingest(background, request, repo.id, name)
+    return _repo_to_dict(repo)
+
+
+@app.put(
+    "/repos/{repo_id}/connection",
+    response_model=RepoResponse,
+    summary="Set repo connection",
+    tags=["repos"],
+)
+def set_repo_connection(
+    repo_id: int,
+    req: RepoConnectionUpdate,
+    session: Session = Depends(get_db),
+    current_user: UserRow = Depends(get_current_user),
+):
+    repo = _owned_repo(session, repo_id, current_user.id)
+    if repo is None:
+        raise HTTPException(status_code=404, detail="Repo not found")
+    if req.connection_id is not None:
+        _usable_connection(session, req.connection_id, current_user.id)
+    repo.connection_id = req.connection_id
+    session.commit()
+    session.refresh(repo)
     return _repo_to_dict(repo)
 
 
@@ -1946,6 +2181,8 @@ def ingest_repo(
     repo = _owned_repo(session, repo_id, current_user.id)
     if not repo:
         raise HTTPException(status_code=404, detail="Repo not found")
+    if repo.connection_id:
+        _usable_connection(session, repo.connection_id, current_user.id)
     if not _claim_ingest(repo_id):
         raise HTTPException(status_code=409, detail="Ingest already in progress")
     _submit_ingest(background, request, repo_id, repo.name)
