@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from surgite import cli_auth
 from surgite.formatter import format_log
 from surgite.git import get_raw_log, parse_log
-from surgite.summarizer import summarize_commits
+from surgite.summarizer import PROVIDERS, summarize_commits
 
 _GIT_RELATIVE_RE = re.compile(r"^(\d+)\.(days?|weeks?)\.ago$")
 
@@ -45,7 +45,7 @@ def _run_local(args) -> str:
     commits = parse_log(raw_log)
     summary = format_log(commits)
     if args.summarize:
-        summary = summarize_commits(summary)
+        summary = summarize_commits(summary, provider=args.provider)
     return summary
 
 
@@ -62,6 +62,8 @@ def _run_registered(args) -> str:
         params["author"] = args.author
     if args.summarize:
         params["ai"] = "true"
+        if args.provider:
+            params["provider"] = args.provider
 
     resp = httpx.get(f"{base}/summary", params=params, headers=headers, timeout=180)
     resp.raise_for_status()
@@ -121,6 +123,12 @@ def main():
     parser.add_argument("--output", help="Output file for the summary (optional)")
     parser.add_argument(
         "--summarize", action="store_true", help="Summarize the commit messages with AI. (optional)"
+    )
+    parser.add_argument(
+        "--provider",
+        choices=sorted(PROVIDERS),
+        help="LLM provider for --summarize (choices: %(choices)s). "
+        "Overrides the LLM_PROVIDER environment variable.",
     )
 
     args = parser.parse_args()
