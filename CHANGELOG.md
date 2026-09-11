@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-09-11
+
+### Added
+
+- Private repositories through saved Git connections. The Settings tab gains a
+  `~/git-connections` section where a user can save an HTTPS token connection
+  (a credential-free origin, a username, and a read-only access token) and
+  assign it to repositories when adding them or from the repository list.
+  Setting `GITHUB_APP_CLIENT_ID` and `GITHUB_APP_CLIENT_SECRET` also enables a
+  GitHub App connection with a repository picker. New routes live under
+  `/connections`, plus `PUT /repos/{repo_id}/connection`; repository responses
+  and `POST /repos` gain an optional `connection_id`. (#80)
+- The CLI accepts the `--provider` argument included in the dashboard's copied
+  command and forwards it when `--summarize` is set. (#73)
+
+### Changed
+
+- Repository names and clone URLs are unique per owner rather than across the
+  deployment. This release adds a database migration. (#80)
+- Repository caches are keyed by repository id. Each existing repository
+  re-clones once on its next sync, and the old name-keyed directories under
+  `REPO_CACHE_DIR` can be deleted. (#80)
+- `scripts/rotate-secrets.sh` also re-encrypts Git connection secrets. (#80)
+
+### Fixed
+
+- The saved-summary ownership switcher is now an accessible tab interface for
+  keyboard and screen-reader users. (#75)
+- Streamed summaries parse LF, CRLF, and CR event framing, including
+  delimiters split across network chunks. (#79)
+- The CLI falls back to the session file when reading the OS keyring fails.
+  (#80)
+
+### Security
+
+- Git credentials are encrypted at rest and reach Git only through a temporary
+  askpass helper, never a URL or command-line argument. `POST /repos` now
+  rejects clone URLs that embed credentials. (#80)
+
 ## [1.6.0] - 2026-09-10
 
 ### Added
