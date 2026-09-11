@@ -350,28 +350,54 @@ export async function streamSummary(
 
 	const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
 	let buffer = '';
+	let event = 'message';
+	let data: string[] = [];
+	const processLine = (line: string) => {
+		if (!line) {
+			dispatchEvent(event, data, handlers);
+			event = 'message';
+			data = [];
+			return;
+		}
+		if (line.startsWith(':')) return;
+		const colon = line.indexOf(':');
+		const field = colon === -1 ? line : line.slice(0, colon);
+		let value = colon === -1 ? '' : line.slice(colon + 1);
+		if (value.startsWith(' ')) value = value.slice(1);
+		if (field === 'event') event = value;
+		else if (field === 'data') data.push(value);
+	};
 	for (;;) {
 		const { value, done } = await reader.read();
 		if (done) break;
 		buffer += value;
-		let sep: number;
-		while ((sep = buffer.indexOf('\n\n')) !== -1) {
-			const frame = buffer.slice(0, sep);
-			buffer = buffer.slice(sep + 2);
-			dispatchFrame(frame, handlers);
+		let line: string | undefined;
+		while ((line = nextLine(buffer)) !== undefined) {
+			buffer = buffer.slice(line.length + lineEndingLength(buffer, line.length));
+			processLine(line);
 		}
+	}
+	let line: string | undefined;
+	while ((line = nextLine(buffer, true)) !== undefined) {
+		buffer = buffer.slice(line.length + lineEndingLength(buffer, line.length));
+		processLine(line);
 	}
 }
 
-function dispatchFrame(frame: string, handlers: StreamHandlers): void {
-	let event = 'message';
-	let data = '';
-	for (const line of frame.split('\n')) {
-		if (line.startsWith('event:')) event = line.slice(6).trim();
-		else if (line.startsWith('data:')) data += line.slice(5).trim();
+function nextLine(buffer: string, final = false): string | undefined {
+	for (let index = 0; index < buffer.length; index++) {
+		if (buffer[index] === '\n') return buffer.slice(0, index);
+		if (buffer[index] === '\r' && (final || index + 1 < buffer.length)) return buffer.slice(0, index);
 	}
-	if (!data) return;
-	const payload = JSON.parse(data);
+}
+
+function lineEndingLength(buffer: string, lineLength: number): number {
+	return buffer[lineLength] === '\r' && buffer[lineLength + 1] === '\n' ? 2 : 1;
+}
+
+function dispatchEvent(event: string, data: string[], handlers: StreamHandlers): void {
+	if (!data.length) return;
+	const payload = JSON.parse(data.join('\n'));
 	if (event === 'meta') handlers.onMeta(payload);
 	else if (event === 'delta') handlers.onDelta(payload.repo, payload.text);
 	else if (event === 'repo_done') handlers.onRepoDone(payload.repo, payload.provider, payload.model);

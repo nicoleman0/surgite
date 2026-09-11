@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import.meta.env.VITE_API_BASE = 'http://api.test';
 
 // Dynamic import so the module evaluates with our env stubs in place.
-const { clearProviderKey, fetchProviderKeys, ingestRepo, login, setProviderKey, signup } =
+const { clearProviderKey, fetchProviderKeys, ingestRepo, login, setProviderKey, signup, streamSummary } =
 	await import('./api');
 
 const okBody = (body: unknown) =>
@@ -26,6 +26,36 @@ const errBody = (status: number, detail: unknown, headers: Record<string, string
 	}) as Response;
 
 let fetchSpy: ReturnType<typeof vi.fn>;
+
+const encoder = new TextEncoder();
+
+const streamResponse = (...chunks: string[]) =>
+	new Response(
+		new ReadableStream<Uint8Array>({
+			start(controller) {
+				for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+				controller.close();
+			}
+		})
+	);
+
+const byteStreamResponse = (...chunks: Uint8Array[]) =>
+	new Response(
+		new ReadableStream<Uint8Array>({
+			start(controller) {
+				for (const chunk of chunks) controller.enqueue(chunk);
+				controller.close();
+			}
+		})
+	);
+
+const handlers = (calls: unknown[][]) => ({
+	onMeta: (meta: unknown) => calls.push(['meta', meta]),
+	onDelta: (repo: string, text: string) => calls.push(['delta', repo, text]),
+	onRepoDone: (repo: string, provider: string, model: string) =>
+		calls.push(['repo_done', repo, provider, model]),
+	onRepoError: (repo: string, detail: string) => calls.push(['repo_error', repo, detail])
+});
 
 beforeEach(() => {
 	fetchSpy = vi.fn();
@@ -283,5 +313,103 @@ describe('provider keys', () => {
 	it('surfaces the off/single_user 404 as err.status', async () => {
 		fetchSpy.mockResolvedValueOnce(errBody(404, 'Not found'));
 		await expect(fetchProviderKeys()).rejects.toMatchObject({ status: 404 });
+	});
+});
+
+describe('streamSummary()', () => {
+	const meta = {
+		period: { since: '2026-09-01', until: '2026-09-02' },
+		total_commits: 1,
+		by_repo: { repo: 1 },
+		by_day: { '2026-09-01': 1 },
+		source_synced_at: { repo: null },
+		repos: ['repo'],
+		provider: 'local',
+		model: 'test-model'
+	};
+
+	const events = (newline: string) =>
+		[
+			`: keepalive${newline}${newline}`,
+			`event: meta${newline}data: ${JSON.stringify(meta)}${newline}${newline}`,
+			`event: delta${newline}data: {"repo":"repo","text":"hello"}${newline}${newline}`,
+			`event: repo_done${newline}data: {"repo":"repo","provider":"local","model":"test-model"}${newline}${newline}`,
+			`event: repo_error${newline}data: {"repo":"other","detail":"failed"}${newline}${newline}`
+		].join('');
+
+	it.each(['\n', '\r\n', '\r'])('parses %j-delimited events in order', async (newline) => {
+		fetchSpy.mockResolvedValueOnce(streamResponse(events(newline)));
+		const calls: unknown[][] = [];
+
+		await streamSummary({}, handlers(calls));
+
+		expect(calls).toEqual([
+			['meta', meta],
+			['delta', 'repo', 'hello'],
+			['repo_done', 'repo', 'local', 'test-model'],
+			['repo_error', 'other', 'failed']
+		]);
+	});
+
+	it('handles byte-by-byte CRLF chunks and split UTF-8 text', async () => {
+		const source = `event: delta\r\ndata: {"repo":"repo","text":"£"}\r\n\r\n`;
+		const bytes = encoder.encode(source);
+		fetchSpy.mockResolvedValueOnce(byteStreamResponse(...Array.from(bytes, (byte) => new Uint8Array([byte]))));
+		const calls: unknown[][] = [];
+
+		await streamSummary({}, handlers(calls));
+
+		expect(calls).toEqual([['delta', 'repo', '£']]);
+	});
+
+	it('joins multiline data fields with a newline', async () => {
+		const parse = vi.spyOn(JSON, 'parse');
+		fetchSpy.mockResolvedValueOnce(
+			streamResponse('event: delta\ndata: {"repo":"repo",\ndata: "text":"hello"}\n\n')
+		);
+		const calls: unknown[][] = [];
+
+		await streamSummary({}, handlers(calls));
+
+		expect(parse).toHaveBeenCalledWith('{"repo":"repo",\n"text":"hello"}');
+		expect(calls).toEqual([['delta', 'repo', 'hello']]);
+		parse.mockRestore();
+	});
+
+	it('ignores empty and comment-only frames and discards an incomplete final event', async () => {
+		fetchSpy.mockResolvedValueOnce(
+			streamResponse('\n: keepalive\n\nevent: delta\ndata: {"repo":"repo","text":"complete"}\n\nevent: delta\ndata: {"repo":"repo","text":"discarded"}')
+		);
+		const calls: unknown[][] = [];
+
+		await streamSummary({}, handlers(calls));
+
+		expect(calls).toEqual([['delta', 'repo', 'complete']]);
+	});
+
+	it('rejects malformed JSON from a CR-delimited event', async () => {
+		fetchSpy.mockResolvedValueOnce(streamResponse('event: delta\rdata: not-json\r\r'));
+
+		await expect(streamSummary({}, handlers([]))).rejects.toThrow(SyntaxError);
+	});
+
+	it('forwards abort signals and propagates AbortError', async () => {
+		const controller = new AbortController();
+		fetchSpy.mockImplementationOnce((_url: string, init: RequestInit) =>
+			new Promise((_, reject) =>
+				(init.signal as AbortSignal).addEventListener('abort', () => reject(init.signal?.reason))
+			)
+		);
+		const promise = streamSummary({}, handlers([]), controller.signal);
+		controller.abort(new DOMException('Aborted', 'AbortError'));
+
+		await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+		expect((fetchSpy.mock.calls[0][1] as RequestInit).signal).toBe(controller.signal);
+	});
+
+	it('keeps HTTP error details', async () => {
+		fetchSpy.mockResolvedValueOnce(errBody(502, 'Provider unavailable'));
+
+		await expect(streamSummary({}, handlers([]))).rejects.toThrow('Provider unavailable');
 	});
 });
