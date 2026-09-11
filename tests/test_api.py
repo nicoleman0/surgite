@@ -600,7 +600,7 @@ def test_health_deep_no_repos_no_keys_is_ok(client):
 
 def test_health_deep_git_ok(client, add_repo, monkeypatch):
     add_repo()
-    monkeypatch.setattr("surgite.api.ls_remote", lambda url, timeout=10: None)
+    monkeypatch.setattr("surgite.api.ls_remote", lambda url, timeout=10, credentials=None: None)
     body = client.get("/health/deep").json()
     assert body["components"]["git"] == "ok"
 
@@ -608,7 +608,7 @@ def test_health_deep_git_ok(client, add_repo, monkeypatch):
 def test_health_deep_git_failure_returns_503(client, add_repo, monkeypatch):
     add_repo()
 
-    def boom(url, timeout=10):
+    def boom(url, timeout=10, credentials=None):
         raise RuntimeError("unreachable host")
 
     monkeypatch.setattr("surgite.api.ls_remote", boom)

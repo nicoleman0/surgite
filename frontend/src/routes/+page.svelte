@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { listRepos, type Repo } from '$lib/api';
+	import { listRepos, type GitConnection, type Repo } from '$lib/api';
 	import { RepoSyncManager } from '$lib/repo-sync';
 	import { nextTab } from '$lib/tabs';
 	import AddRepoForm from '$lib/components/AddRepoForm.svelte';
 	import HelpOverlay from '$lib/components/HelpOverlay.svelte';
+	import GitConnections from '$lib/components/GitConnections.svelte';
 	import PromptSettings from '$lib/components/PromptSettings.svelte';
 	import ProviderKeys from '$lib/components/ProviderKeys.svelte';
 	import RepoList from '$lib/components/RepoList.svelte';
@@ -25,6 +26,7 @@
 	let syncingIds = $state(new Set<number>());
 	let requestedSettingsRepoId = $state<number | null>(null);
 	let settingsRequestVersion = $state(0);
+	let connections = $state<GitConnection[]>([]);
 
 	function applyRepoData(data: { repos: Repo[]; stale_after_seconds: number | null }) {
 		repos = data.repos;
@@ -140,13 +142,14 @@
 		<div id="repositories-panel" role="tabpanel" aria-labelledby="repositories-tab" hidden={workspace !== 'repositories'} class="px-4 pb-6 sm:px-6">
 			<div class="max-w-2xl">
 				<h2 class="text-sm text-fg-muted"><span class="text-accent">~/repos</span> <span aria-hidden="true">❯</span></h2>
-				<AddRepoForm onAdded={handleRepoAdded} />
-				<RepoList {repos} {loading} {error} onChanged={loadRepos} {syncingIds} onSync={(targets) => syncManager.sync(targets)} />
+				<AddRepoForm onAdded={handleRepoAdded} {connections} />
+				<RepoList {repos} {loading} {error} onChanged={loadRepos} {syncingIds} {connections} onSync={(targets) => syncManager.sync(targets)} />
 			</div>
 		</div>
 		<div id="settings-panel" role="tabpanel" aria-labelledby="settings-tab" hidden={workspace !== 'settings'} class="px-4 pb-6 sm:px-6">
 			<div class="max-w-2xl">
 				<PromptSettings {repos} active={workspace === 'settings'} requestedRepoId={requestedSettingsRepoId} requestVersion={settingsRequestVersion} />
+				<div class="mt-8"><GitConnections active={workspace === 'settings'} onChanged={(next) => (connections = next)} /></div>
 				<div class="mt-8"><ProviderKeys active={workspace === 'settings'} /></div>
 			</div>
 		</div>

@@ -104,3 +104,8 @@ SMTP_TLS = os.environ.get("SMTP_TLS", "starttls").lower()
 # Base URL used to build links in emails (the reset link). Defaults to the
 # request's own origin when unset, so a single-host deployment needs no config.
 PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
+
+# GitHub App web-flow credentials. Leaving these blank simply hides the
+# GitHub connection option; HTTPS token connections remain available.
+GITHUB_APP_CLIENT_ID = os.environ.get("GITHUB_APP_CLIENT_ID", "")
+GITHUB_APP_CLIENT_SECRET = os.environ.get("GITHUB_APP_CLIENT_SECRET", "")

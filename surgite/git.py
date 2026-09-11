@@ -1,12 +1,24 @@
 import os
 import re
 import subprocess
+import tempfile
+from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
 
 from surgite.models import Commit
 
 REMOTE_PATTERNS = re.compile(r"^(https?://|git@|git://|ssh://)")
+
+
+@dataclass(frozen=True)
+class GitCredentials:
+    origin: str
+    username: str
+    token: str
 
 
 def is_remote_url(path: str) -> bool:
@@ -25,56 +37,82 @@ def _repo_name_from_url(url: str) -> str:
     return name
 
 
-def ensure_repo(name: str, url: str, cache_dir: str, timeout: int = 120) -> str:
+@contextmanager
+def _git_auth(url: str, credentials: GitCredentials | None):
+    """Yield a non-interactive Git environment without placing secrets in URLs or argv."""
+    if credentials is None:
+        yield {"GIT_TERMINAL_PROMPT": "0", "GIT_CONFIG_NOSYSTEM": "1"}
+        return
+    parsed_url, parsed_origin = urlparse(url), urlparse(credentials.origin)
+    if (
+        parsed_url.scheme != "https"
+        or parsed_url.username
+        or parsed_url.password
+        or parsed_url.netloc.lower() != parsed_origin.netloc.lower()
+    ):
+        raise RuntimeError("Connection credentials do not match this HTTPS repository")
+    with tempfile.TemporaryDirectory(prefix="surgite-git-") as temp_dir:
+        askpass = Path(temp_dir) / "askpass"
+        askpass.write_text(
+            '#!/bin/sh\ncase "$1" in *Username*) printf %s "$SURGITE_GIT_USERNAME";; *) printf %s "$SURGITE_GIT_TOKEN";; esac\n'
+        )
+        askpass.chmod(0o700)
+        env = {
+            "GIT_TERMINAL_PROMPT": "0",
+            "GIT_CONFIG_NOSYSTEM": "1",
+            "GIT_ASKPASS": str(askpass),
+            "GIT_ASKPASS_REQUIRE": "force",
+            "SURGITE_GIT_USERNAME": credentials.username,
+            "SURGITE_GIT_TOKEN": credentials.token,
+        }
+        yield env
+
+
+def _run_git(
+    args: list[str], *, env: dict[str, str], **kwargs: Any
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["git", "-c", "credential.helper=", *args],
+        env={**os.environ, **env},
+        capture_output=True,
+        text=True,
+        **kwargs,
+    )
+
+
+def ensure_repo(
+    name: str,
+    url: str,
+    cache_dir: str,
+    timeout: int = 120,
+    credentials: GitCredentials | None = None,
+) -> str:
     """Clone or update a metadata-only repository cache."""
     dest = os.path.join(cache_dir, name)
     Path(cache_dir).mkdir(parents=True, exist_ok=True)
-
-    if os.path.isdir(os.path.join(dest, ".git")):
-        subprocess.run(
-            ["git", "fetch", "origin"],
-            cwd=dest,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=timeout,
-        )
-        # Refresh origin/HEAD in case the default branch changed.
-        subprocess.run(
-            ["git", "remote", "set-head", "origin", "-a"],
-            cwd=dest,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
-        subprocess.run(
-            ["git", "reset", "--soft", "origin/HEAD"],
-            cwd=dest,
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=timeout,
-        )
-    else:
-        subprocess.run(
-            ["git", "clone", "--filter=blob:none", "--no-checkout", url, dest],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=timeout,
-        )
+    with _git_auth(url, credentials) as env:
+        if os.path.isdir(os.path.join(dest, ".git")):
+            _run_git(["fetch", "origin"], cwd=dest, env=env, check=True, timeout=timeout)
+            # Refresh origin/HEAD in case the default branch changed.
+            _run_git(["remote", "set-head", "origin", "-a"], cwd=dest, env=env, timeout=timeout)
+            _run_git(
+                ["reset", "--soft", "origin/HEAD"], cwd=dest, env=env, check=True, timeout=timeout
+            )
+        else:
+            _run_git(
+                ["clone", "--filter=blob:none", "--no-checkout", url, dest],
+                env=env,
+                check=True,
+                timeout=timeout,
+            )
     return dest
 
 
-def ls_remote(url: str, timeout: int = 10) -> None:
+def ls_remote(url: str, timeout: int = 10, credentials: GitCredentials | None = None) -> None:
     """Check remote reachability without cloning."""
     try:
-        result = subprocess.run(
-            ["git", "ls-remote", "--heads", url],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-        )
+        with _git_auth(url, credentials) as env:
+            result = _run_git(["ls-remote", "--heads", url], env=env, timeout=timeout)
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError(f"git ls-remote timed out after {timeout}s") from exc
     if result.returncode != 0:

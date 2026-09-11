@@ -11,6 +11,7 @@ class ErrorResponse(BaseModel):
 
 class RepoCreate(BaseModel):
     url: str
+    connection_id: str | None = None
 
 
 class RepoResponse(BaseModel):
@@ -21,6 +22,29 @@ class RepoResponse(BaseModel):
     last_ingested_at: datetime | None
     last_ingest_attempt_at: datetime | None
     last_ingest_error: str | None
+    connection_id: str | None
+
+
+class RepoConnectionUpdate(BaseModel):
+    connection_id: str | None = None
+
+
+class GitConnectionCreate(BaseModel):
+    name: str
+    origin: str
+    username: str
+    token: str
+
+
+class GitConnectionResponse(BaseModel):
+    id: str
+    name: str
+    kind: str
+    host: str
+    status: str
+    created_at: datetime | None
+    updated_at: datetime | None
+    affected_repositories: int
 
 
 class RepoListResponse(BaseModel):

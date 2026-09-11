@@ -158,10 +158,14 @@ class CommitRow(Base):
 
 class RepoRow(Base):
     __tablename__ = "repos"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "name", name="uq_repos_owner_name"),
+        UniqueConstraint("owner_id", "clone_url", name="uq_repos_owner_clone_url"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String, unique=True)
-    clone_url: Mapped[str] = mapped_column(String, unique=True)
+    name: Mapped[str] = mapped_column(String)
+    clone_url: Mapped[str] = mapped_column(String)
     owner_id: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True
     )
@@ -179,6 +183,43 @@ class RepoRow(Base):
         DateTime(timezone=True), nullable=True
     )
     last_ingest_error: Mapped[str | None] = mapped_column(String, nullable=True)
+    connection_id: Mapped[str | None] = mapped_column(
+        ForeignKey("git_connections.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+
+class GitConnectionRow(Base):
+    """A reusable, owner-scoped Git credential. Secret JSON is Fernet encrypted."""
+
+    __tablename__ = "git_connections"
+    __table_args__ = (UniqueConstraint("owner_id", "name", name="uq_git_connections_owner_name"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    owner_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    org_id: Mapped[str | None] = mapped_column(
+        ForeignKey("orgs.id", ondelete="SET NULL"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String)
+    kind: Mapped[str] = mapped_column(String)  # token | github
+    host: Mapped[str] = mapped_column(String)
+    encrypted_secret: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    disconnected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class GitHubAuthStateRow(Base):
+    """A short-lived, one-use OAuth state bound to a Surgite account."""
+
+    __tablename__ = "github_auth_states"
+
+    state_hash: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class PromptSettingsRow(Base):

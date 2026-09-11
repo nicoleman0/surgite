@@ -51,7 +51,7 @@ def _derive(material: str) -> bytes:
 old_fernet = Fernet(_derive(OLD_MATERIAL))
 new_fernet = Fernet(_derive(NEW_MATERIAL))
 
-from surgite.db import ProviderKeyRow, session_scope
+from surgite.db import GitConnectionRow, ProviderKeyRow, session_scope
 from surgite.config import DATABASE_URL
 
 if DATABASE_URL.startswith("sqlite"):
@@ -59,15 +59,19 @@ if DATABASE_URL.startswith("sqlite"):
     sys.exit(2)
 
 with session_scope() as s:
-    rows = s.query(ProviderKeyRow).filter(ProviderKeyRow.revoked_at.is_(None)).all()
-    print(f"re-encrypting {len(rows)} active provider_keys row(s)")
-    for row in rows:
-        try:
-            plain = old_fernet.decrypt(row.encrypted_key.encode("ascii"))
-        except InvalidToken:
-            print(f"  warning: row {row.id} for user {row.user_id} did not decrypt cleanly; leaving as-is", file=sys.stderr)
-            continue
-        row.encrypted_key = new_fernet.encrypt(plain).decode("ascii")
+    for model, attr, active in (
+        (ProviderKeyRow, "encrypted_key", ProviderKeyRow.revoked_at.is_(None)),
+        (GitConnectionRow, "encrypted_secret", GitConnectionRow.encrypted_secret.is_not(None)),
+    ):
+        rows = s.query(model).filter(active).all()
+        print(f"re-encrypting {len(rows)} active {model.__tablename__} row(s)")
+        for row in rows:
+            try:
+                plain = old_fernet.decrypt(getattr(row, attr).encode("ascii"))
+            except InvalidToken:
+                print(f"  warning: {model.__tablename__} row {row.id} did not decrypt cleanly; leaving as-is", file=sys.stderr)
+                continue
+            setattr(row, attr, new_fernet.encrypt(plain).decode("ascii"))
     s.commit()
 PYEOF
 
