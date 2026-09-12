@@ -30,12 +30,16 @@
 		} catch (cause) { toasts.error(cause instanceof Error ? cause.message : 'failed to update connection'); }
 	}
 
-	async function handleDelete(id: number) {
-		deletingId = id;
-		const name = repos.find((r) => r.id === id)?.name ?? 'repository';
+	async function handleDelete(repo: Repo) {
+		// ponytail: native confirm(), not a custom modal -- focus, Escape, page
+		// inertness and screen-reader announcement come free. Ceiling: unstyleable
+		// and it blocks the thread; upgrade path is <dialog>.showModal(), as
+		// HelpOverlay.svelte already does.
+		if (!window.confirm(`Delete ${repo.name}? Its registered commit data is removed from Surgite.`)) return;
+		deletingId = repo.id;
 		try {
-			await deleteRepo(id);
-			toasts.success(`removed ${name}`);
+			await deleteRepo(repo.id);
+			toasts.success(`removed ${repo.name}`);
 			onChanged();
 		} catch (e) {
 			toasts.error(e instanceof Error ? e.message : 'delete failed');
@@ -101,7 +105,7 @@
 							↻
 						</button>
 						<button
-							onclick={() => handleDelete(repo.id)}
+							onclick={() => handleDelete(repo)}
 							disabled={deletingId === repo.id || syncingIds.has(repo.id)}
 							class="text-sm text-fg-faint transition hover:text-err disabled:opacity-50"
 							aria-label="Delete {repo.name}"
