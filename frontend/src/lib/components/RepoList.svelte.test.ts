@@ -1,21 +1,20 @@
 // @vitest-environment jsdom
 import { mount, tick, unmount } from 'svelte';
+import type { ComponentProps } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import RepoList from './RepoList.svelte';
-import { deleteRepo } from '$lib/api';
-import type { GitConnection, Repo } from '$lib/api';
+import type { Repo } from '$lib/api';
 
-vi.mock('$lib/api', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$lib/api')>();
-	return {
-		...actual,
-		deleteRepo: vi.fn(),
-		setRepoConnection: vi.fn()
-	};
-});
+const { deleteRepoMock, setRepoConnectionMock } = vi.hoisted(() => ({
+	deleteRepoMock: vi.fn(),
+	setRepoConnectionMock: vi.fn()
+}));
 
-const deleteRepoMock = vi.mocked(deleteRepo);
+vi.mock('$lib/api', () => ({
+	deleteRepo: deleteRepoMock,
+	setRepoConnection: setRepoConnectionMock
+}));
 
 function repo(overrides: Partial<Repo> = {}): Repo {
 	return {
@@ -31,17 +30,7 @@ function repo(overrides: Partial<Repo> = {}): Repo {
 	};
 }
 
-interface RepoListProps {
-	repos: Repo[];
-	loading: boolean;
-	error: string | null;
-	onChanged: () => void;
-	syncingIds: Set<number>;
-	connections: GitConnection[];
-	onSync: (repos: Repo[]) => void;
-}
-
-function render(props: Partial<RepoListProps> = {}) {
+function render(props: Partial<ComponentProps<typeof RepoList>> = {}) {
 	const target = document.createElement('div');
 	document.body.append(target);
 	const onChanged = vi.fn();
@@ -73,22 +62,34 @@ async function flush() {
 	await tick();
 }
 
+// jsdom does not implement window.confirm -- it emits a jsdomError and returns
+// undefined, which would read as "cancelled" and silently pass every test.
+let confirmSpy: ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+	confirmSpy = vi.fn().mockReturnValue(true);
+	vi.stubGlobal('confirm', confirmSpy);
+});
+
 afterEach(() => {
+	vi.unstubAllGlobals();
 	deleteRepoMock.mockReset();
 	document.body.innerHTML = '';
 });
 
 describe('RepoList delete confirmation', () => {
 	it('does not send a delete request when confirmation is cancelled', async () => {
+		confirmSpy.mockReturnValue(false);
 		const { target, component } = render();
 
 		await click(target.querySelector('button[aria-label="Delete surgite-demo"]'));
-		expect(target.querySelector('[role="dialog"]')?.textContent).toContain('surgite-demo');
 
-		await click([...target.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Cancel') ?? null);
-
+		expect(confirmSpy).toHaveBeenCalledTimes(1);
+		expect(confirmSpy.mock.calls[0][0]).toContain('surgite-demo');
 		expect(deleteRepoMock).not.toHaveBeenCalled();
-		expect(target.querySelector('[role="dialog"]')).toBeNull();
+		expect(
+			target.querySelector<HTMLButtonElement>('button[aria-label="Delete surgite-demo"]')?.disabled
+		).toBe(false);
 		unmount(component);
 	});
 
@@ -97,9 +98,9 @@ describe('RepoList delete confirmation', () => {
 		const { target, component, onChanged } = render({ repos: [repo({ id: 7, name: 'api-service' })] });
 
 		await click(target.querySelector('button[aria-label="Delete api-service"]'));
-		await click([...target.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Delete repository') ?? null);
 		await flush();
 
+		expect(confirmSpy.mock.calls[0][0]).toContain('api-service');
 		expect(deleteRepoMock).toHaveBeenCalledTimes(1);
 		expect(deleteRepoMock).toHaveBeenCalledWith(7);
 		expect(onChanged).toHaveBeenCalledTimes(1);
@@ -112,7 +113,6 @@ describe('RepoList delete confirmation', () => {
 		const { target, component } = render();
 
 		await click(target.querySelector('button[aria-label="Delete surgite-demo"]'));
-		await click([...target.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Delete repository') ?? null);
 
 		expect(target.querySelector<HTMLButtonElement>('button[aria-label="Delete surgite-demo"]')?.disabled).toBe(true);
 		expect(target.querySelector<HTMLButtonElement>('button[aria-label="Sync surgite-demo"]')?.disabled).toBe(true);
@@ -128,7 +128,6 @@ describe('RepoList delete confirmation', () => {
 		const { target, component, onChanged } = render();
 
 		await click(target.querySelector('button[aria-label="Delete surgite-demo"]'));
-		await click([...target.querySelectorAll('button')].find((button) => button.textContent?.trim() === 'Delete repository') ?? null);
 		await flush();
 
 		expect(onChanged).not.toHaveBeenCalled();

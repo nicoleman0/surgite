@@ -23,7 +23,6 @@
 	} = $props();
 
 	let deletingId = $state<number | null>(null);
-	let confirmingRepo = $state<Repo | null>(null);
 	async function updateConnection(repo: Repo, event: Event) {
 		try {
 			await setRepoConnection(repo.id, (event.currentTarget as HTMLSelectElement).value || null);
@@ -32,8 +31,12 @@
 	}
 
 	async function handleDelete(repo: Repo) {
+		// ponytail: native confirm(), not a custom modal -- focus, Escape, page
+		// inertness and screen-reader announcement come free. Ceiling: unstyleable
+		// and it blocks the thread; upgrade path is <dialog>.showModal(), as
+		// HelpOverlay.svelte already does.
+		if (!window.confirm(`Delete ${repo.name}? Its registered commit data is removed from Surgite.`)) return;
 		deletingId = repo.id;
-		confirmingRepo = null;
 		try {
 			await deleteRepo(repo.id);
 			toasts.success(`removed ${repo.name}`);
@@ -43,10 +46,6 @@
 		} finally {
 			deletingId = null;
 		}
-	}
-
-	function confirmDelete() {
-		if (confirmingRepo) void handleDelete(confirmingRepo);
 	}
 </script>
 
@@ -106,7 +105,7 @@
 							↻
 						</button>
 						<button
-							onclick={() => (confirmingRepo = repo)}
+							onclick={() => handleDelete(repo)}
 							disabled={deletingId === repo.id || syncingIds.has(repo.id)}
 							class="text-sm text-fg-faint transition hover:text-err disabled:opacity-50"
 							aria-label="Delete {repo.name}"
@@ -119,36 +118,3 @@
 		</ul>
 	{/if}
 </div>
-
-{#if confirmingRepo}
-	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-		<div
-			class="max-w-sm border border-border bg-bg p-4 shadow-lg"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="delete-repo-title"
-			aria-describedby="delete-repo-description"
-		>
-			<h2 id="delete-repo-title" class="text-base font-semibold text-fg">
-				Delete {confirmingRepo.name}?
-			</h2>
-			<p id="delete-repo-description" class="mt-2 text-sm text-fg-muted">
-				This will remove {confirmingRepo.name} and its registered data from Surgite.
-			</p>
-			<div class="mt-4 flex justify-end gap-3">
-				<button
-					class="border border-border px-3 py-1 text-sm text-fg-muted transition hover:text-fg"
-					onclick={() => (confirmingRepo = null)}
-				>
-					Cancel
-				</button>
-				<button
-					class="border border-err px-3 py-1 text-sm text-err transition hover:bg-err hover:text-bg"
-					onclick={confirmDelete}
-				>
-					Delete repository
-				</button>
-			</div>
-		</div>
-	</div>
-{/if}
