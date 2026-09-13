@@ -27,10 +27,11 @@ locally; move it to a branch rather than trying to force it through.
 6. Bump `version` in `frontend/package.json` to match. `vite.config.ts` reads
    it at build time into `__APP_VERSION__`, which `StatusBar.svelte` renders,
    so skipping this ships a web UI that reports the previous version. Nothing
-   fails if you forget — no gate checks the two against each other. Leave
-   `frontend/package-lock.json` alone: its `version` field has read `0.2.0`
-   since before the rename, `npm ci` does not check it, and every release so
-   far has left it as-is.
+   fails if you forget — no gate checks the two against each other. Run
+   `npm version X.Y.Z --no-git-tag-version` in `frontend/`: it bumps
+   `package-lock.json` in the same step. `npm ci` does not check the lockfile's
+   `version`, but the next `npm install` rewrites it, so bumping both now keeps
+   that change out of an unrelated PR.
 7. Move the `[Unreleased]` entries in `CHANGELOG.md` under the new version,
    with a date.
 8. For a minor or major bump, roll the supported-versions table in
