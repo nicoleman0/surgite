@@ -74,6 +74,8 @@
 	const rangeInvalid = $derived(
 		range === 'custom' && !!customSince && !!customUntil && customSince > customUntil
 	);
+	// Only a loaded catalogue can say no provider is usable; a failed request leaves the choice to the server.
+	const noUsableProvider = $derived(providers.length > 0 && !providers.some((provider) => provider.available));
 	const hasResult = $derived(stats !== null);
 	const scopedRepos = $derived(reposInScope(repos, repoName));
 	const scopedFreshness = $derived(
@@ -154,7 +156,9 @@
 		try {
 			const data = await fetchProviders();
 			providers = data.providers;
-			selectedProvider = data.default;
+			const usable = data.providers.filter((provider) => provider.available);
+			selectedProvider = (usable.find((provider) => provider.name === data.default) ?? usable[0])?.name ?? '';
+			if (usable.length === 0) useAi = false;
 		} catch {
 			// The provider selector is optional when the endpoint is unavailable.
 		}
@@ -473,16 +477,17 @@
 				<input type="date" bind:value={customUntil} min={customSince || undefined} aria-label="To date" class={inputCls} />
 			{/if}
 			<input type="text" bind:value={author} placeholder="Author (optional)" aria-label="Filter by author" class="{inputCls} sm:w-44" />
-			<label class="flex min-h-6 items-center gap-1.5 text-sm text-fg-muted"><input type="checkbox" bind:checked={useAi} class="size-4 accent-accent" /> AI summary</label>
+			<label class="flex min-h-6 items-center gap-1.5 text-sm text-fg-muted"><input type="checkbox" bind:checked={useAi} disabled={noUsableProvider} class="size-4 accent-accent" /> AI summary</label>
 			{#if useAi && providers.length > 0}
-				<select bind:value={selectedProvider} class={inputCls}>
-					{#each providers as provider (provider.name)}<option value={provider.name}>{provider.name} ({provider.model}){provider.available ? '' : ' — no key'}</option>{/each}
+				<select bind:value={selectedProvider} aria-label="AI provider" class={inputCls}>
+					{#each providers as provider (provider.name)}<option value={provider.name} disabled={!provider.available}>{provider.name} ({provider.model}){provider.available ? '' : ' — no key'}</option>{/each}
 				</select>
 			{/if}
 			<button onclick={generate} disabled={generating || rangeInvalid} class="min-h-11 w-full border border-border bg-accent px-4 py-1.5 text-sm font-medium text-accent-contrast transition hover:bg-accent-hover disabled:opacity-50 sm:min-h-0 sm:w-auto">
 				{generating ? `${spinnerFrame} generating…` : '❯ generate'}
 			</button>
 		</div>
+		{#if noUsableProvider}<p class="mt-2 text-xs text-fg-muted">AI summaries need a provider API key. Add one in settings or the server environment.</p>{/if}
 
 		{#if scopedRepos.length}
 			<div class="mt-3 flex flex-wrap items-center gap-3 border border-border bg-surface px-3 py-2 text-xs" aria-live="polite">
