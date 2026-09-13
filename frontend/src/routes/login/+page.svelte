@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import { login } from '$lib/api';
+	import { safeReturnPath } from '$lib/navigation';
 
 	let email = $state('');
 	let password = $state('');
@@ -24,7 +26,7 @@
 		error = null;
 		try {
 			await login(email.trim(), password);
-			goto('/');
+			goto(safeReturnPath(page.url.searchParams.get('next'), window.location.origin));
 		} catch (e2) {
 			const err = e2 as Error & { lockoutSeconds?: number };
 			error =

@@ -5,7 +5,6 @@
 		createInvite,
 		deactivateUser,
 		fetchAdminUsers,
-		fetchCurrentUser,
 		unlockUser,
 		type AdminInviteResponse,
 		type AdminUser,
@@ -13,10 +12,10 @@
 	} from '$lib/api';
 	import { relativeTime } from '$lib/time';
 	import { toasts } from '$lib/toast.svelte';
+	import AppHeader from '$lib/components/AppHeader.svelte';
 	import Skeleton from '$lib/components/Skeleton.svelte';
-	import ThemePicker from '$lib/components/ThemePicker.svelte';
 
-	let me = $state<CurrentUser | null>(null);
+	let { data }: { data: { user: CurrentUser } } = $props();
 	let loadError = $state<string | null>(null);
 
 	let users = $state<AdminUser[]>([]);
@@ -47,12 +46,7 @@
 	}
 
 	onMount(async () => {
-		try {
-			me = await fetchCurrentUser();
-		} catch {
-			me = null;
-		}
-		if (me?.is_admin) await load();
+		if (data.user.is_admin) await load();
 	});
 
 	async function act(
@@ -126,10 +120,7 @@
 
 <main class="mx-auto min-h-screen max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
 	<div class="border border-border bg-surface">
-		<div class="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-			<span class="flex-1 text-xs text-fg-muted">surgite</span>
-			<ThemePicker />
-		</div>
+		<AppHeader user={data.user} />
 
 		<div class="px-4 py-6 sm:px-6">
 			<div class="flex items-center gap-2">
@@ -144,11 +135,7 @@
 			<div class="mt-1 border-b border-dashed border-border-subtle"></div>
 		</div>
 
-		{#if me === null}
-			<p class="px-4 pb-6 text-sm text-err sm:px-6">
-				You need to <a href="/login" class="underline">log in</a> to view this page.
-			</p>
-		{:else if !me.is_admin}
+		{#if !data.user.is_admin}
 			<div class="px-4 pb-6 sm:px-6">
 				<p class="text-sm text-err">403 — admin only.</p>
 				<a href="/" class="mt-3 inline-block text-sm text-accent underline">back to surgite ❯</a>
@@ -322,7 +309,7 @@
 														unlock
 													</button>
 												{/if}
-												{#if u.is_active && u.id !== me?.id}
+								{#if u.is_active && u.id !== data.user.id}
 													<button
 														onclick={() => act(u, deactivateUser, 'deactivated', (row) => ({ ...row, is_active: false }))}
 														class="text-fg-faint transition hover:text-err"

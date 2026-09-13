@@ -32,33 +32,34 @@ afterEach(() => {
 });
 
 describe('UserBadge admin navigation', () => {
-	it('links administrators to the admin UI', async () => {
-		fetchCurrentUserMock.mockResolvedValueOnce({
+	it('uses the layout user without fetching it again', async () => {
+		const user = {
 			id: 'u1',
 			email: 'admin@example.test',
 			display_name: 'Admin',
 			is_admin: true
-		});
+		};
 		const target = document.createElement('div');
 		document.body.append(target);
-		const component = mount(UserBadge, { target });
+		const component = mount(UserBadge, { target, props: { user } });
 
 		await flush();
 
+		expect(fetchCurrentUserMock).not.toHaveBeenCalled();
 		expect(target.querySelector<HTMLAnchorElement>('a')?.getAttribute('href')).toBe('/admin');
 		unmount(component);
 	});
 
 	it('does not show the admin link to regular users', async () => {
-		fetchCurrentUserMock.mockResolvedValueOnce({
+		const user = {
 			id: 'u2',
 			email: 'user@example.test',
 			display_name: 'User',
 			is_admin: false
-		});
+		};
 		const target = document.createElement('div');
 		document.body.append(target);
-		const component = mount(UserBadge, { target });
+		const component = mount(UserBadge, { target, props: { user } });
 
 		await flush();
 
