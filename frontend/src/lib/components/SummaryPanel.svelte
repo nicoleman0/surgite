@@ -445,9 +445,9 @@
 		}
 	}
 
-	const inputCls = 'border border-border bg-bg px-2 py-1.5 text-sm text-fg';
+	const inputCls = 'w-full min-w-0 max-w-full border border-border bg-bg px-2 py-1.5 text-sm text-fg sm:w-auto';
 	const actionCls =
-		'inline-flex items-center gap-1 border border-border px-3 py-1 text-xs text-fg-muted transition hover:bg-surface hover:text-fg disabled:opacity-50';
+		'inline-flex min-h-6 items-center gap-1 border border-border px-3 py-1 text-xs text-fg-muted transition hover:bg-surface hover:text-fg disabled:opacity-50';
 </script>
 
 <section>
@@ -456,10 +456,10 @@
 	{#if repos.length === 0 && !hasResult && !generating}
 		<div class="mt-3 border border-border bg-bg px-4 py-5">
 			<p class="text-sm text-fg-muted">Add a repository before generating a standup summary.</p>
-			<button type="button" onclick={() => onOpenRepos?.()} class="mt-3 border border-border bg-surface px-3 py-1.5 text-sm text-fg transition hover:bg-surface-2"><span class="text-accent">❯</span> add repository</button>
+			<button type="button" onclick={() => onOpenRepos?.()} class="mt-3 min-h-11 border border-border bg-surface px-3 py-1.5 text-sm text-fg transition hover:bg-surface-2 sm:min-h-0"><span class="text-accent">❯</span> add repository</button>
 		</div>
 	{:else}
-		<div class="mt-3 flex flex-wrap items-center gap-3">
+		<div class="mt-3 flex flex-col items-stretch gap-3 sm:flex-row sm:flex-wrap sm:items-center">
 			<select bind:value={repoName} class={inputCls}>
 				<option value="">All repos</option>
 				{#each repos as repo (repo.id)}<option value={repo.name}>{repo.name}</option>{/each}
@@ -472,14 +472,14 @@
 				<span class="text-sm text-fg-muted">to</span>
 				<input type="date" bind:value={customUntil} min={customSince || undefined} aria-label="To date" class={inputCls} />
 			{/if}
-			<input type="text" bind:value={author} placeholder="Author (optional)" aria-label="Filter by author" class="{inputCls} w-44" />
-			<label class="flex items-center gap-1.5 text-sm text-fg-muted"><input type="checkbox" bind:checked={useAi} class="accent-accent" /> AI summary</label>
+			<input type="text" bind:value={author} placeholder="Author (optional)" aria-label="Filter by author" class="{inputCls} sm:w-44" />
+			<label class="flex min-h-6 items-center gap-1.5 text-sm text-fg-muted"><input type="checkbox" bind:checked={useAi} class="size-4 accent-accent" /> AI summary</label>
 			{#if useAi && providers.length > 0}
 				<select bind:value={selectedProvider} class={inputCls}>
 					{#each providers as provider (provider.name)}<option value={provider.name}>{provider.name} ({provider.model}){provider.available ? '' : ' — no key'}</option>{/each}
 				</select>
 			{/if}
-			<button onclick={generate} disabled={generating || rangeInvalid} class="border border-border bg-accent px-4 py-1.5 text-sm font-medium text-accent-contrast transition hover:bg-accent-hover disabled:opacity-50">
+			<button onclick={generate} disabled={generating || rangeInvalid} class="min-h-11 w-full border border-border bg-accent px-4 py-1.5 text-sm font-medium text-accent-contrast transition hover:bg-accent-hover disabled:opacity-50 sm:min-h-0 sm:w-auto">
 				{generating ? `${spinnerFrame} generating…` : '❯ generate'}
 			</button>
 		</div>
@@ -508,9 +508,9 @@
 			{#if stats.total === 0}
 				<p class="mt-4 text-sm text-fg-muted">No commits in this period.</p>
 			{:else}
-				<div class="mt-3 flex flex-wrap items-center justify-between gap-2">
-					<span class="text-xs text-fg-faint">{buildCliEcho()}</span>
-					<div class="flex items-center gap-2">
+				<div class="mt-3 flex flex-col items-stretch justify-between gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+					<span class="min-w-0 break-all text-xs text-fg-faint">{buildCliEcho()}</span>
+					<div class="flex flex-wrap items-center gap-2">
 						<button onclick={copyMarkdown} disabled={generating || refreshingRepo !== null} class={actionCls}>❯ copy markdown</button>
 						<button onclick={share} disabled={generating || sharing} class={actionCls}>{sharing ? 'sharing…' : '❯ share link'}</button>
 					</div>

@@ -24,7 +24,7 @@
 
 <main class="mx-auto min-h-screen max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
 	<div class="border border-border bg-surface">
-		<AppHeader user={data.user} />
+		<AppHeader user={data.user} currentPath="/settings" />
 		<div class="px-4 py-6 sm:px-6">
 			<div class="flex items-center gap-2"><span class="text-accent" aria-hidden="true">&gt;_</span><h1 class="text-lg font-semibold text-fg">surgite</h1><span class="cursor" aria-hidden="true"></span></div>
 			<p class="mt-1 text-sm text-fg-muted">Generate standup summaries from your git history.</p>

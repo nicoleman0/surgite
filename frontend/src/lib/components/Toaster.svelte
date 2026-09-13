@@ -3,7 +3,7 @@
 </script>
 
 <div
-	class="pointer-events-none fixed right-4 bottom-10 left-4 z-50 flex w-full max-w-md flex-col gap-1 sm:left-auto"
+	class="pointer-events-none fixed right-4 bottom-10 left-4 z-50 flex max-w-md flex-col gap-1 sm:left-auto"
 	aria-live="polite"
 >
 	{#each toasts.items as t (t.id)}

@@ -61,7 +61,7 @@
 		</div>
 
 		<div class="px-4 py-6 sm:px-6">
-			<div class="flex items-center gap-2">
+			<div class="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
 				<span class="text-accent" aria-hidden="true">&gt;_</span>
 				<h1 class="text-lg font-semibold text-fg">login</h1>
 				<span class="cursor" aria-hidden="true"></span>
@@ -99,12 +99,12 @@
 				<button
 					type="submit"
 					disabled={submitting}
-					class="border border-border bg-surface px-3 py-1.5 text-sm text-fg transition hover:bg-surface-2 disabled:opacity-50"
+					class="min-h-11 border border-border bg-surface px-3 py-1.5 text-sm text-fg transition hover:bg-surface-2 disabled:opacity-50 sm:min-h-0"
 				>
 					<span class="text-accent">❯</span>
 					{submitting ? 'logging in…' : 'login'}
 				</button>
-				<a href="/signup" class="px-2 py-1.5 text-sm text-fg-muted transition hover:text-fg">
+				<a href="/signup" class="inline-flex min-h-11 items-center px-2 py-1.5 text-sm text-fg-muted transition hover:text-fg sm:min-h-0">
 					need an account? <span class="text-accent">signup</span>
 				</a>
 			</div>

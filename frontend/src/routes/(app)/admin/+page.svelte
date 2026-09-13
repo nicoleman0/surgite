@@ -120,7 +120,7 @@
 
 <main class="mx-auto min-h-screen max-w-4xl px-4 py-6 sm:px-6 sm:py-10">
 	<div class="border border-border bg-surface">
-		<AppHeader user={data.user} />
+		<AppHeader user={data.user} currentPath="/admin" />
 
 		<div class="px-4 py-6 sm:px-6">
 			<div class="flex items-center gap-2">
@@ -215,21 +215,21 @@
 							<span class="text-accent">[ ok ]</span> invite created — share the URL below
 							(out-of-band; email delivery is a 0.6.0 follow-up).
 						</p>
-						<div class="mt-2 flex items-center gap-2">
+						<div class="mt-2 flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
 							<code
-								class="flex-1 select-all break-all border border-border bg-surface px-2 py-1.5 text-xs text-fg"
+								class="min-w-0 flex-1 select-all break-all border border-border bg-surface px-2 py-1.5 text-xs text-fg"
 							>
 								{inviteLink}
 							</code>
 							<button
 								onclick={() => copy(inviteLink)}
-								class="shrink-0 border border-border bg-surface px-2 py-1.5 text-xs text-fg transition hover:bg-surface-2"
+								class="min-h-6 shrink-0 border border-border bg-surface px-2 py-1.5 text-xs text-fg transition hover:bg-surface-2"
 							>
 								copy
 							</button>
 							<button
 								onclick={dismissInvite}
-								class="shrink-0 px-2 py-1.5 text-xs text-fg-faint transition hover:text-fg"
+								class="min-h-6 shrink-0 px-2 py-1.5 text-xs text-fg-faint transition hover:text-fg"
 							>
 								dismiss
 							</button>

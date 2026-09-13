@@ -107,6 +107,12 @@ jobs:
       - name: Build SvelteKit SPA
         run: cd frontend && npm run build
 
+      - name: Install Playwright Chromium
+        run: cd frontend && npx playwright install --with-deps chromium
+
+      - name: Browser tests (Playwright)
+        run: cd frontend && npm run test:e2e
+
   snapshot:
     name: OpenAPI snapshot gate
     runs-on: ubuntu-latest

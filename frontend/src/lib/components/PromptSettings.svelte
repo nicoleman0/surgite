@@ -118,13 +118,13 @@
 	{#if loading}
 		<div class="mt-3"><Skeleton rows={4} /></div>
 	{:else}
-		<div class="mt-3 flex flex-wrap items-center gap-2">
+		<div class="mt-3 flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
 				<label class={labelCls} for="ps-scope">Scope</label>
 				<select
 					id="ps-scope"
 					value={selectedRepoId === null ? '' : String(selectedRepoId)}
 					onchange={(e) => selectRepoValue(e.currentTarget.value)}
-					class="border border-border bg-bg px-2 py-1.5 text-sm text-fg"
+					class="max-w-full border border-border bg-bg px-2 py-1.5 text-sm text-fg"
 				>
 					<option value="">Global default</option>
 					{#each repos as r (r.id)}
@@ -201,7 +201,7 @@
 		<button
 			onclick={save}
 			disabled={saving}
-			class="mt-4 border border-border bg-accent px-4 py-1.5 text-sm font-medium text-accent-contrast transition hover:bg-accent-hover disabled:opacity-50"
+			class="mt-4 min-h-11 w-full border border-border bg-accent px-4 py-1.5 text-sm font-medium text-accent-contrast transition hover:bg-accent-hover disabled:opacity-50 sm:min-h-0 sm:w-auto"
 		>
 			{saving ? 'Saving…' : '❯ save'}
 		</button>

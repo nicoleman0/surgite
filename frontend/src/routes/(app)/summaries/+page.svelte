@@ -57,7 +57,7 @@
 
 <main class="mx-auto min-h-screen max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
 	<div class="border border-border bg-surface">
-		<AppHeader user={data.user} />
+		<AppHeader user={data.user} currentPath="/summaries" />
 
 		<div class="px-4 py-6 sm:px-6">
 			<div class="flex items-center gap-2">
@@ -88,12 +88,12 @@
 			{:else}
 				<ul class="divide-y divide-border-subtle border border-border bg-bg">
 					{#each summaries as s (s.slug)}
-						<li class="flex items-center justify-between gap-4 px-3 py-2.5">
+						<li class="flex min-w-0 flex-col items-stretch justify-between gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:gap-4">
 							<div class="min-w-0 flex-1">
-								<p class="truncate font-mono text-sm text-fg">{s.slug}</p>
-								<p class="truncate text-xs text-fg-muted">{describeParams(s.params)}</p>
+								<p class="break-all font-mono text-sm text-fg sm:truncate">{s.slug}</p>
+								<p class="break-words text-xs text-fg-muted sm:truncate">{describeParams(s.params)}</p>
 							</div>
-							<div class="flex shrink-0 items-center gap-3 text-xs text-fg-faint">
+							<div class="flex flex-wrap items-center gap-3 text-xs text-fg-faint sm:shrink-0">
 								<span>created {relativeTime(s.created_at)}</span>
 								<span>expires {relativeTime(s.expires_at)}</span>
 								<a href={'/s/' + encodeURIComponent(s.slug)} class="text-accent underline transition hover:text-accent-hover">open</a>
