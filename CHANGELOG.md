@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-09-13
+
+### Added
+
+- The web UI works on screens narrower than 640px. Below that width a mobile
+  nav bar replaces the workspace tabs, the status bar stops covering content,
+  and headers, forms, and repository rows stack instead of widening the page.
+  (#85)
+- The workspace is split into separate pages: `/` (summary), `/repositories`,
+  and `/settings`. `/settings?repo_id=N` opens that repository's prompt
+  settings. (#84)
+- Admins get an `admin` link in the user badge. (#83)
+- Deleting a repository now asks for confirmation first. (#82)
+
+### Changed
+
+- The admin page moved from `/admin/users` to `/admin`. `/admin/users` remains
+  the JSON API. (#83)
+- An expired session redirects to `/login` and returns to the page you were on
+  after sign-in. (#84)
+
+### Fixed
+
+- Refreshing or opening a direct link to `/password-reset`, `/summaries`, or
+  the admin page no longer returns 404. (#83)
+
 ## [1.7.0] - 2026-09-11
 
 ### Added

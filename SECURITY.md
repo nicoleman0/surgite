@@ -14,8 +14,8 @@ Security fixes target the latest minor release and the preceding minor release f
 
 | Version | Support |
 | --- | --- |
-| 1.7.x | Supported |
-| 1.6.x | Supported through 2027-03-11 |
-| 1.5.x and earlier | End of life |
+| 1.8.x | Supported |
+| 1.7.x | Supported through 2027-03-13 |
+| 1.6.x and earlier | End of life |
 
 Upgrade guidance is in [docs/self-host.md](docs/self-host.md) and [the migration guides](docs/migrations/).
