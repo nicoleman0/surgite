@@ -2332,5 +2332,16 @@ def _serve_spa_shell():
     raise HTTPException(status_code=404, detail="Frontend build not available")
 
 
+_SPA_SHELL_PATHS = ("/password-reset", "/summaries", "/admin")
+for _path in _SPA_SHELL_PATHS:
+    app.add_api_route(
+        _path,
+        _serve_spa_shell,
+        methods=["GET"],
+        include_in_schema=False,
+        name=f"spa_{_path.removeprefix('/').replace('/', '_')}",
+    )
+
+
 if _FRONTEND_BUILD.is_dir():
     app.mount("/", StaticFiles(directory=_FRONTEND_BUILD, html=True), name="frontend")
