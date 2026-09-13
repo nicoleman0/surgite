@@ -5,19 +5,13 @@
 		type PromptSettings as Settings,
 		type Repo
 	} from '$lib/api';
+	import { onMount } from 'svelte';
 	import { toasts } from '$lib/toast.svelte';
 	import Skeleton from './Skeleton.svelte';
 
-	let {
-		repos = [],
-		active = false,
-		requestedRepoId = null,
-		requestVersion = 0
-	}: {
+	let { repos = [], initialRepoId = null }: {
 		repos?: Repo[];
-		active?: boolean;
-		requestedRepoId?: number | null;
-		requestVersion?: number;
+		initialRepoId?: number | null;
 	} = $props();
 
 	let saving = $state(false);
@@ -78,16 +72,10 @@
 		}
 	}
 
-	$effect(() => {
-		if (!active || loaded || loading) return;
+	onMount(async () => {
+		selectedRepoId = initialRepoId;
+		await load();
 		loaded = true;
-		if (requestVersion > 0) selectedRepoId = requestedRepoId;
-		void load();
-	});
-
-	$effect(() => {
-		if (!active || !loaded || requestVersion === 0 || requestedRepoId === selectedRepoId) return;
-		void selectRepo(requestedRepoId);
 	});
 
 	async function selectRepo(next: number | null): Promise<boolean> {

@@ -2,19 +2,15 @@
 	import { ProviderKeysStore } from '$lib/provider-keys.svelte';
 	import { relativeTime } from '$lib/time';
 	import { toasts } from '$lib/toast.svelte';
+	import { onMount } from 'svelte';
 	import Skeleton from './Skeleton.svelte';
-
-	let { active = false }: { active?: boolean } = $props();
 
 	const store = new ProviderKeysStore();
 
-	let loaded = $state(false);
 	let editing = $state<string | null>(null);
 	let drafts = $state<Record<string, string>>({});
 
-	$effect(() => {
-		if (!active || loaded || store.loading) return;
-		loaded = true;
+	onMount(() => {
 		void store.load();
 	});
 

@@ -6,7 +6,13 @@ import pytest
 
 from surgite import api
 
-CURRENT_UI_PATHS = ("/password-reset", "/summaries", "/admin")
+CURRENT_UI_PATHS = (
+    "/password-reset",
+    "/summaries",
+    "/admin",
+    "/repositories",
+    "/settings",
+)
 EXISTING_UI_PATHS = ("/login", "/signup", "/s/example")
 
 

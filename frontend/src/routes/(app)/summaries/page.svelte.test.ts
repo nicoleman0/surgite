@@ -1,19 +1,41 @@
 // @vitest-environment jsdom
 
 import { mount, tick, unmount } from 'svelte';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import Page from './+page.svelte';
+const { fetchMySummaries, logout } = vi.hoisted(() => ({
+	fetchMySummaries: vi.fn(),
+	logout: vi.fn()
+}));
 
-const { fetchMySummaries } = vi.hoisted(() => ({ fetchMySummaries: vi.fn() }));
+vi.mock('$lib/api', () => ({ fetchMySummaries, logout }));
 
-vi.mock('$lib/api', () => ({ fetchMySummaries }));
-
+let Page: typeof import('./+page.svelte').default;
 let page: ReturnType<typeof mount>;
+
+beforeAll(async () => {
+	vi.stubGlobal('localStorage', {
+		getItem: vi.fn(() => null),
+		setItem: vi.fn()
+	});
+	Page = (await import('./+page.svelte')).default;
+});
 
 beforeEach(async () => {
 	fetchMySummaries.mockResolvedValue({ summaries: [], total: 0 });
-	page = mount(Page, { target: document.body });
+	page = mount(Page, {
+		target: document.body,
+		props: {
+			data: {
+				user: {
+					id: '1',
+					email: 'alice@example.test',
+					display_name: 'Alice',
+					is_admin: false
+				}
+			}
+		}
+	});
 	await tick();
 });
 
@@ -21,6 +43,8 @@ afterEach(async () => {
 	await unmount(page);
 	fetchMySummaries.mockReset();
 });
+
+afterAll(() => vi.unstubAllGlobals());
 
 describe('summary ownership tabs', () => {
 	it('renders linked tabs and panels with roving focus', () => {

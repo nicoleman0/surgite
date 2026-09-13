@@ -2332,7 +2332,13 @@ def _serve_spa_shell():
     raise HTTPException(status_code=404, detail="Frontend build not available")
 
 
-_SPA_SHELL_PATHS = ("/password-reset", "/summaries", "/admin")
+_SPA_SHELL_PATHS = (
+    "/password-reset",
+    "/summaries",
+    "/admin",
+    "/repositories",
+    "/settings",
+)
 for _path in _SPA_SHELL_PATHS:
     app.add_api_route(
         _path,

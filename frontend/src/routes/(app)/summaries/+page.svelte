@@ -1,8 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { fetchMySummaries, type MySummary, type SummaryParams } from '$lib/api';
+	import { fetchMySummaries, type CurrentUser, type MySummary, type SummaryParams } from '$lib/api';
 	import { nextTab } from '$lib/tabs';
 	import { relativeTime } from '$lib/time';
+	import AppHeader from '$lib/components/AppHeader.svelte';
+
+	let { data }: { data: { user: CurrentUser } } = $props();
 
 	const TABS = ['mine', 'shared'] as const;
 	type Tab = (typeof TABS)[number];
@@ -54,10 +57,7 @@
 
 <main class="mx-auto min-h-screen max-w-2xl px-4 py-6 sm:px-6 sm:py-10">
 	<div class="border border-border bg-surface">
-		<div class="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-			<span class="flex-1 text-xs text-fg-muted">surgite</span>
-			<a href="/" class="text-xs text-fg-muted transition hover:text-fg"> ← home </a>
-		</div>
+		<AppHeader user={data.user} />
 
 		<div class="px-4 py-6 sm:px-6">
 			<div class="flex items-center gap-2">
