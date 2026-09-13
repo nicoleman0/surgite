@@ -27,6 +27,9 @@
 		<span class="text-fg-faint">user:</span>
 		{user.display_name || user.email}
 	</span>
+	{#if user.is_admin}
+		<a href="/admin" class="text-xs text-fg-muted transition hover:text-fg">admin</a>
+	{/if}
 	<button
 		onclick={handleLogout}
 		class="inline-flex items-center gap-1 border border-border bg-surface px-2 py-1.5 text-xs text-fg-muted transition hover:text-fg"
