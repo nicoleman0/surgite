@@ -191,8 +191,8 @@
 	</div>
 
 	{#if layout === 'focus' && activeEntry}
-		<div class="grid border border-border bg-bg md:grid-cols-[12rem_minmax(0,1fr)]">
-			<nav class="hidden divide-y divide-border-subtle bg-surface md:block" aria-label="Repository summaries">
+		<div class="grid border border-border bg-bg sm:grid-cols-[12rem_minmax(0,1fr)]">
+			<nav class="hidden divide-y divide-border-subtle bg-surface sm:block" aria-label="Repository summaries">
 				{#each sortedEntries as entry (entry.repo)}
 					<button
 						type="button"
@@ -218,17 +218,17 @@
 				<select
 					bind:value={selectedRepo}
 					aria-label="Repository summary"
-					class="block w-full border-b border-border bg-surface px-3 py-2.5 text-sm text-fg md:hidden"
+					class="block w-full min-w-0 border-b border-border bg-surface px-3 py-2.5 text-sm text-fg sm:hidden"
 				>
 					{#each sortedEntries as entry (entry.repo)}
 						<option value={entry.repo}>{entry.repo} — {entry.commits} commits</option>
 					{/each}
 				</select>
 
-				<header class="flex items-start justify-between gap-3 border-b border-border-subtle bg-surface-2 px-4 py-3">
+				<header class="flex min-w-0 flex-col items-stretch justify-between gap-3 border-b border-border-subtle bg-surface-2 px-4 py-3 sm:flex-row sm:items-start">
 					<div class="min-w-0">
-						<h3 class="truncate text-sm font-semibold text-fg">{activeEntry.repo}</h3>
-						<p class="mt-0.5 text-xs text-fg-muted">
+						<h3 class="break-words text-sm font-semibold text-fg sm:truncate">{activeEntry.repo}</h3>
+						<p class="mt-0.5 break-words text-xs text-fg-muted">
 							{activeEntry.commits} commit{activeEntry.commits === 1 ? '' : 's'} · {statusLabel(activeEntry)}
 							{#if activeEntry.provider}
 								· {activeEntry.provider}{activeEntry.model ? ` · ${activeEntry.model}` : ''}
@@ -238,7 +238,7 @@
 							<p class="mt-0.5 text-xs {freshnessClass(activeEntry)}">{freshnessIcon(activeEntry)} {freshnessLabel(activeEntry)}</p>
 						{/if}
 					</div>
-					<div class="flex shrink-0 items-center gap-1">
+					<div class="flex flex-wrap items-center gap-1 sm:shrink-0 sm:justify-end">
 						{#if onSync}
 							<button
 								type="button"
@@ -293,7 +293,7 @@
 					{/if}
 				</div>
 
-				<footer class="grid grid-cols-[1fr_auto_1fr] items-center gap-2 border-t border-border-subtle px-3 py-2 text-xs text-fg-muted">
+				<footer class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-t border-border-subtle px-3 py-2 text-xs text-fg-muted">
 					<button type="button" onclick={() => move(-1)} disabled={activeIndex <= 0} class="justify-self-start px-1.5 py-1 hover:bg-surface hover:text-fg disabled:opacity-40">← previous</button>
 					<span>{activeIndex + 1} of {sortedEntries.length}</span>
 					<button type="button" onclick={() => move(1)} disabled={activeIndex >= sortedEntries.length - 1} class="justify-self-end px-1.5 py-1 hover:bg-surface hover:text-fg disabled:opacity-40">next →</button>
@@ -301,7 +301,7 @@
 			</div>
 		</div>
 	{:else if layout === 'grid'}
-		<div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+		<div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
 			{#each sortedEntries as entry (entry.repo)}
 				<article class="border border-border bg-bg">
 					<header class="flex items-start justify-between gap-3 border-b border-border-subtle bg-surface-2 px-3 py-2.5">

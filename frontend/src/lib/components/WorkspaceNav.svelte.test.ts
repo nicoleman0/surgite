@@ -21,6 +21,8 @@ describe('WorkspaceNav', () => {
 			'/settings'
 		]);
 		expect(target.querySelector('a[aria-current="page"]')?.textContent).toContain('Repositories');
+		expect(target.querySelector('nav')?.className).toContain('hidden');
+		expect(target.querySelector('nav')?.className).toContain('sm:flex');
 		unmount(component);
 	});
 });

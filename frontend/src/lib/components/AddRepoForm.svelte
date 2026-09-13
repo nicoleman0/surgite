@@ -56,15 +56,15 @@
 <div class="mt-3">
 	{#if open}
 		<form onsubmit={submit} class="flex flex-col gap-2">
-			<div class="flex items-center gap-2">
+			<div class="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
 				<span class="text-accent" aria-hidden="true">❯</span>
-			<input
+				<input
 					bind:value={input}
 					use:focusOnMount
 					placeholder="https://github.com/user/repo.git"
-					class="flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint"
+					class="min-w-0 flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-fg placeholder:text-fg-faint"
 				/>
-				<select bind:value={connectionId} onchange={loadGithubRepos} class="border border-border bg-bg px-2 py-1.5 text-sm text-fg">
+				<select bind:value={connectionId} onchange={loadGithubRepos} class="w-full min-w-0 max-w-full border border-border bg-bg px-2 py-1.5 text-sm text-fg sm:w-auto">
 					<option value="">no saved connection</option>
 					{#each connections.filter((item) => item.status === 'connected') as connection}
 						<option value={connection.id}>{connection.name}</option>
@@ -73,16 +73,16 @@
 				<button
 					type="submit"
 					disabled={submitting}
-					class="border border-border bg-surface px-3 py-1.5 text-sm text-fg transition hover:bg-surface-2 disabled:opacity-50"
+					class="min-h-11 border border-border bg-surface px-3 py-1.5 text-sm text-fg transition hover:bg-surface-2 disabled:opacity-50 sm:min-h-0"
 				>
 					{submitting ? 'adding…' : 'add-repo'}
 				</button>
-				<button type="button" onclick={cancel} class="px-2 py-1.5 text-sm text-fg-muted transition hover:text-fg">
+				<button type="button" onclick={cancel} class="min-h-11 px-2 py-1.5 text-sm text-fg-muted transition hover:text-fg sm:min-h-0">
 					cancel
 				</button>
 			</div>
 			{#if githubRepos.length}
-				<select onchange={(event) => (input = (event.currentTarget as HTMLSelectElement).value)} class="border border-border bg-bg px-2 py-1.5 text-sm text-fg">
+				<select onchange={(event) => (input = (event.currentTarget as HTMLSelectElement).value)} class="w-full min-w-0 border border-border bg-bg px-2 py-1.5 text-sm text-fg">
 					<option value="">select a GitHub repository</option>
 					{#each githubRepos as repo}<option value={repo.url}>{repo.name}</option>{/each}
 				</select>
@@ -94,7 +94,7 @@
 	{:else}
 		<button
 			onclick={() => (open = true)}
-			class="border border-border bg-surface px-3 py-1.5 text-sm text-fg transition hover:bg-surface-2"
+			class="min-h-11 border border-border bg-surface px-3 py-1.5 text-sm text-fg transition hover:bg-surface-2 sm:min-h-0"
 		>
 			<span class="text-accent">❯</span> add-repo
 		</button>

@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { logout, type CurrentUser } from '$lib/api';
 
-	let { user }: { user: CurrentUser } = $props();
+	let { user, showAdminLink = true }: { user: CurrentUser; showAdminLink?: boolean } = $props();
 
 	async function handleLogout() {
 		try {
@@ -17,7 +17,7 @@
 	<span class="text-fg-faint">user:</span>
 	{user.display_name || user.email}
 </span>
-{#if user.is_admin}
+{#if user.is_admin && showAdminLink}
 	<a href="/admin" class="text-xs text-fg-muted transition hover:text-fg">admin</a>
 {/if}
 <button

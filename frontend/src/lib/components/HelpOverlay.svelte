@@ -41,9 +41,9 @@
 	onkeydown={handleKey}
 	onclick={handleClick}
 	aria-label="Help"
-	class="m-auto w-full max-w-lg border border-border bg-surface p-0 text-sm text-fg backdrop:bg-bg/80"
+	class="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto border border-border bg-surface p-0 text-sm text-fg backdrop:bg-bg/80"
 >
-	<div class="p-6">
+	<div class="p-4 sm:p-6">
 		<div class="mb-4 flex items-center justify-between">
 			<h2 class="text-base font-semibold text-fg">:help</h2>
 			<button onclick={close} class="text-fg-muted hover:text-fg" aria-label="Close help">✕</button>

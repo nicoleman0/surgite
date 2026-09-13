@@ -62,14 +62,14 @@
 		</div>
 		<ul class="divide-y divide-border-subtle">
 			{#each repos as repo (repo.id)}
-				<li class="flex items-center justify-between gap-4 px-4 py-3">
+				<li class="flex flex-col items-stretch justify-between gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-4">
 					<div class="min-w-0">
-						<p class="truncate text-fg">{repo.name}</p>
-						<p class="flex items-center gap-1 text-xs text-fg-muted">
+						<p class="break-words text-fg sm:truncate">{repo.name}</p>
+						<p class="flex min-w-0 items-start gap-1 text-xs text-fg-muted">
 							<span aria-hidden="true">↗</span>
-							<span class="truncate">{repo.clone_url}</span>
+							<span class="min-w-0 break-all sm:truncate">{repo.clone_url}</span>
 						</p>
-						<select value={repo.connection_id ?? ''} onchange={(event) => updateConnection(repo, event)} class="mt-1 border border-border bg-bg px-1 py-0.5 text-xs text-fg-muted">
+						<select value={repo.connection_id ?? ''} onchange={(event) => updateConnection(repo, event)} class="mt-1 max-w-full border border-border bg-bg px-1 py-0.5 text-xs text-fg-muted">
 							<option value="">no saved connection</option>
 							{#each connections as connection}<option value={connection.id} disabled={connection.status !== 'connected'}>{connection.name} ({connection.status})</option>{/each}
 						</select>
@@ -79,7 +79,7 @@
 						{#if syncingIds.has(repo.id)}
 							<p class="mt-1 text-xs text-accent">syncing…</p>
 						{:else if repo.last_ingest_error}
-							<p class="mt-1 text-xs text-err">
+							<p class="mt-1 break-words text-xs text-err">
 								sync failed {relativeTime(repo.last_ingest_attempt_at)} — {repo.last_ingest_error}
 							</p>
 							{#if repo.last_ingested_at}
@@ -95,11 +95,11 @@
 							<p class="mt-1 text-xs text-fg-faint">never synced</p>
 						{/if}
 					</div>
-					<div class="flex shrink-0 items-center gap-3">
+					<div class="flex shrink-0 items-center justify-end gap-3 self-end sm:self-auto">
 						<button
 							onclick={() => onSync([repo])}
 							disabled={syncingIds.has(repo.id) || deletingId === repo.id}
-							class="text-base text-fg-faint transition hover:text-accent disabled:opacity-50"
+							class="inline-flex min-h-6 min-w-6 items-center justify-center text-base text-fg-faint transition hover:text-accent disabled:opacity-50"
 							aria-label="Sync {repo.name}"
 						>
 							↻
@@ -107,7 +107,7 @@
 						<button
 							onclick={() => handleDelete(repo)}
 							disabled={deletingId === repo.id || syncingIds.has(repo.id)}
-							class="text-sm text-fg-faint transition hover:text-err disabled:opacity-50"
+							class="inline-flex min-h-6 min-w-6 items-center justify-center text-sm text-fg-faint transition hover:text-err disabled:opacity-50"
 							aria-label="Delete {repo.name}"
 						>
 							✕

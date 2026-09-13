@@ -38,7 +38,7 @@
 	{#if visibleError}<p class="mt-2 text-xs text-err">{visibleError}</p>{/if}
 	<ul class="mt-3 space-y-2">
 		{#each workspace.connections as connection (connection.id)}
-			<li class="flex items-center gap-2 border border-border px-3 py-2 text-sm"><span>{connection.name}</span><span class="text-xs text-fg-muted">{connection.kind} · {connection.host} · {connection.affected_repositories} repos</span><span class="ml-auto text-xs {connection.status === 'connected' ? 'text-accent' : 'text-err'}">{connection.status}</span><button onclick={() => disconnect(connection)} class="text-xs text-fg-muted hover:text-err">disconnect</button></li>
+			<li class="flex min-w-0 flex-col items-stretch gap-2 border border-border px-3 py-2 text-sm sm:flex-row sm:items-center"><span class="break-words">{connection.name}</span><span class="min-w-0 break-all text-xs text-fg-muted">{connection.kind} · {connection.host} · {connection.affected_repositories} repos</span><span class="text-xs {connection.status === 'connected' ? 'text-accent' : 'text-err'} sm:ml-auto">{connection.status}</span><button onclick={() => disconnect(connection)} class="min-h-6 self-end px-1 text-xs text-fg-muted hover:text-err sm:self-auto">disconnect</button></li>
 		{/each}
 	</ul>
 	<form onsubmit={(event) => { event.preventDefault(); void save(); }} class="mt-3 grid gap-2 sm:grid-cols-2">
@@ -46,7 +46,7 @@
 		<input bind:value={origin} required placeholder="https://git.example.com" class="border border-border bg-bg px-2 py-1.5 text-sm text-fg" />
 		<input bind:value={username} required placeholder="username" class="border border-border bg-bg px-2 py-1.5 text-sm text-fg" />
 		<input bind:value={token} required type="password" autocomplete="off" placeholder="access token" class="border border-border bg-bg px-2 py-1.5 text-sm text-fg" />
-		<button disabled={busy} class="border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg">{busy ? 'saving…' : 'save HTTPS connection'}</button>
-		<button type="button" onclick={connectGithub} class="border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg">connect GitHub</button>
+		<button disabled={busy} class="min-h-11 border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg sm:min-h-0">{busy ? 'saving…' : 'save HTTPS connection'}</button>
+		<button type="button" onclick={connectGithub} class="min-h-11 border border-border px-3 py-1.5 text-sm text-fg-muted hover:text-fg sm:min-h-0">connect GitHub</button>
 	</form>
 </section>

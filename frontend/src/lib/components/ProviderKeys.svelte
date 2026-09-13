@@ -67,11 +67,11 @@
 			<ul class="mt-3 flex flex-col gap-2">
 				{#each store.rows as row (row.provider)}
 					<li class="border border-border bg-surface px-3 py-2">
-						<div class="flex flex-wrap items-center gap-2">
-							<span class="text-sm text-fg">{row.provider}</span>
+						<div class="flex min-w-0 flex-wrap items-center gap-2">
+							<span class="min-w-0 break-all text-sm text-fg">{row.provider}</span>
 							{#if row.isDefault}<span class="text-xs text-fg-faint">default</span>{/if}
 
-							<span class="flex-1 text-xs text-fg-muted">
+							<span class="min-w-0 flex-1 break-words text-xs text-fg-muted">
 								{#if row.status === 'configured'}
 									key set · added {relativeTime(row.created_at)}
 								{:else if row.status === 'revoked'}
@@ -104,7 +104,7 @@
 						</div>
 
 						{#if editing === row.provider}
-							<div class="mt-2 flex flex-wrap items-center gap-2">
+							<div class="mt-2 flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:items-center">
 								<label class="sr-only" for="pk-{row.provider}">{row.provider} API key</label>
 								<input
 									id="pk-{row.provider}"
@@ -114,13 +114,13 @@
 									placeholder="paste key"
 									bind:value={drafts[row.provider]}
 									disabled={store.busy[row.provider]}
-									class="flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-fg"
+									class="min-w-0 flex-1 border border-border bg-bg px-2 py-1.5 text-sm text-fg"
 								/>
 								<button
 									type="button"
 									onclick={() => save(row.provider)}
 									disabled={store.busy[row.provider]}
-									class="border border-border bg-accent px-3 py-1.5 text-xs font-medium text-accent-contrast transition hover:bg-accent-hover disabled:opacity-50"
+									class="min-h-11 border border-border bg-accent px-3 py-1.5 text-xs font-medium text-accent-contrast transition hover:bg-accent-hover disabled:opacity-50 sm:min-h-0"
 								>
 									{store.busy[row.provider] ? 'saving…' : '❯ save'}
 								</button>

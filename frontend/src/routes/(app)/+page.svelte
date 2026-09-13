@@ -24,7 +24,7 @@
 
 <main class="mx-auto min-h-screen px-4 py-6 transition-[max-width] sm:px-6 sm:py-10 {resultActive ? 'max-w-5xl' : 'max-w-2xl'}">
 	<div class="border border-border bg-surface">
-		<AppHeader user={data.user} />
+		<AppHeader user={data.user} currentPath="/" />
 
 		<div class="px-4 py-6 sm:px-6">
 			<div class="flex items-center gap-2"><span class="text-accent" aria-hidden="true">&gt;_</span><h1 class="text-lg font-semibold text-fg">surgite</h1><span class="cursor" aria-hidden="true"></span></div>

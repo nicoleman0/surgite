@@ -10,7 +10,7 @@
 	];
 </script>
 
-<nav class="mt-4 flex gap-1 border-b border-border-subtle text-sm" aria-label="Workspace">
+<nav class="mt-4 hidden gap-1 border-b border-border-subtle text-sm sm:flex" aria-label="Workspace">
 	{#each links as link}
 		<a
 			href={link.href}
