@@ -5,7 +5,8 @@ import stat
 
 import pytest
 
-from surgite import cli_auth
+from surgite import cli_auth, config
+from surgite.db import UserRow, get_session
 
 
 @pytest.fixture(autouse=True)
@@ -264,3 +265,63 @@ def test_cmd_redeem_invite_succeeds_without_cookie(monkeypatch):
     monkeypatch.setattr(cli_auth.httpx, "post", lambda *a, **k: FakeResp())
     assert cli_auth.cmd_redeem_invite("http://api", "inv-abc", password="pw") == 0
     assert cli_auth.load_session() is None
+
+
+def _password_prompts(monkeypatch, *values):
+    answers = iter(values)
+    monkeypatch.setattr(cli_auth.getpass, "getpass", lambda prompt: next(answers))
+
+
+def test_cmd_bootstrap_admin_uses_default_email_and_keeps_secrets_out_of_output(
+    monkeypatch, capsys
+):
+    monkeypatch.setattr(config, "AUTH_MODE", "multi_user")
+    monkeypatch.setattr(config, "BOOTSTRAP_OWNER_EMAIL", "owner@example.com")
+    _password_prompts(monkeypatch, "correct-horse-battery", "correct-horse-battery")
+
+    assert cli_auth.cmd_bootstrap_admin() == 0
+
+    output = capsys.readouterr()
+    assert "owner@example.com" in output.out
+    assert "correct-horse-battery" not in output.out + output.err
+    assert "token" not in (output.out + output.err).lower()
+    with get_session() as session:
+        user = session.query(UserRow).one()
+        assert user.email == "owner@example.com" and user.is_admin
+
+
+def test_cmd_bootstrap_admin_accepts_email_override(monkeypatch, capsys):
+    monkeypatch.setattr(config, "AUTH_MODE", "multi_user")
+    monkeypatch.setattr(config, "BOOTSTRAP_OWNER_EMAIL", "ignored@example.com")
+    _password_prompts(monkeypatch, "correct-horse-battery", "correct-horse-battery")
+
+    assert cli_auth.cmd_bootstrap_admin("override@example.com") == 0
+    assert "override@example.com" in capsys.readouterr().out
+
+
+def test_cmd_bootstrap_admin_requires_matching_passwords(monkeypatch, capsys):
+    monkeypatch.setattr(config, "AUTH_MODE", "multi_user")
+    _password_prompts(monkeypatch, "correct-horse-battery", "different-password")
+
+    assert cli_auth.cmd_bootstrap_admin("owner@example.com") == 1
+    assert "do not match" in capsys.readouterr().err
+    with get_session() as session:
+        assert session.query(UserRow).count() == 0
+
+
+def test_cmd_bootstrap_admin_requires_eight_character_password(monkeypatch, capsys):
+    monkeypatch.setattr(config, "AUTH_MODE", "multi_user")
+    _password_prompts(monkeypatch, "short", "short")
+
+    assert cli_auth.cmd_bootstrap_admin("owner@example.com") == 1
+    assert "at least 8 characters" in capsys.readouterr().err
+    with get_session() as session:
+        assert session.query(UserRow).count() == 0
+
+
+def test_cmd_bootstrap_admin_returns_failure_for_wrong_auth_mode(monkeypatch, capsys):
+    monkeypatch.setattr(config, "AUTH_MODE", "off")
+    _password_prompts(monkeypatch, "correct-horse-battery", "correct-horse-battery")
+
+    assert cli_auth.cmd_bootstrap_admin("owner@example.com") == 1
+    assert "AUTH_MODE=multi_user" in capsys.readouterr().err

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from surgite import config
 from surgite.db import (
     ApiKeyRow,
+    AuditLogRow,
     InviteRow,
     OrgMemberRow,
     OrgRow,
@@ -22,6 +23,7 @@ from surgite.db import (
     SessionRow,
     UserRow,
     get_db,
+    get_session,
     session_scope,
 )
 
@@ -174,8 +176,7 @@ def slugify_org(local_part: str) -> str:
     return s
 
 
-def create_personal_org(session: Session, user: UserRow) -> OrgRow:
-    """Return the user's personal org, creating it when needed."""
+def _ensure_personal_org(session: Session, user: UserRow) -> OrgRow:
     if user.personal_org_id is not None:
         existing = session.get(OrgRow, user.personal_org_id)
         if existing is not None:
@@ -190,6 +191,12 @@ def create_personal_org(session: Session, user: UserRow) -> OrgRow:
     session.flush()
     session.add(OrgMemberRow(org_id=org.id, user_id=user.id, role="owner"))
     user.personal_org_id = org.id
+    return org
+
+
+def create_personal_org(session: Session, user: UserRow) -> OrgRow:
+    """Return the user's personal org, creating it when needed."""
+    org = _ensure_personal_org(session, user)
     session.commit()
     session.refresh(user)
     return org
@@ -235,6 +242,81 @@ def create_user(
     return user
 
 
+def bootstrap_admin(email: str, password: str) -> str:
+    """Create or claim the sole bootstrap administrator from the host shell."""
+    if config.AUTH_MODE != "multi_user":
+        raise ValueError("administrator bootstrap requires AUTH_MODE=multi_user")
+    email = normalize_email(email)
+    if not email:
+        raise ValueError("administrator email is required")
+    if len(password) < 8:
+        raise ValueError("password must be at least 8 characters")
+    password_hash = hash_password(password)
+
+    with get_session() as session:
+        admins = session.scalars(
+            select(UserRow).where(UserRow.is_admin.is_(True), UserRow.is_active.is_(True))
+        ).all()
+        if any(admin.password_hash is not None for admin in admins):
+            raise ValueError("an administrator is already configured")
+        if len(admins) > 1:
+            raise ValueError("multiple passwordless administrators exist; refusing to guess")
+
+        target = session.scalar(select(UserRow).where(UserRow.email == email))
+        if admins:
+            user = admins[0]
+            if target is not None and target.id != user.id:
+                raise ValueError(f"an account with email {email!r} already exists")
+            user.email = email
+            user.password_hash = password_hash
+            mode = "claimed"
+        else:
+            if target is not None:
+                if not target.is_active:
+                    raise ValueError(f"the account for {email!r} is inactive")
+                raise ValueError(f"an account with email {email!r} already exists")
+            user = UserRow(
+                email=email,
+                password_hash=password_hash,
+                display_name=email.split("@")[0],
+                is_admin=True,
+                is_active=True,
+            )
+            session.add(user)
+            session.flush()
+            mode = "created"
+        _ensure_personal_org(session, user)
+
+        now = datetime.now(UTC)
+        legacy_invites = session.scalars(
+            select(InviteRow).where(
+                InviteRow.created_by.is_(None),
+                InviteRow.role == "admin",
+                InviteRow.used_at.is_(None),
+            )
+        ).all()
+        for invite in legacy_invites:
+            invite.used_at = now
+            invite.used_by = user.id
+        session.add(
+            AuditLogRow(
+                actor_id=user.id,
+                org_id=user.personal_org_id,
+                action="admin.bootstrap",
+                target_type="user",
+                target_id=user.id,
+                metadata_={"mode": mode},
+            )
+        )
+        session.commit()
+        user_id = user.id
+
+    logging.getLogger("audit").info(
+        "audit admin.bootstrap actor=%s target=user:%s", user_id, user_id
+    )
+    return user_id
+
+
 def create_invite(
     session: Session,
     *,
@@ -258,23 +340,16 @@ def create_invite(
     return invite
 
 
-def ensure_bootstrap_invite(session: Session) -> str | None:
-    """Return the reusable first-admin invite when bootstrap is needed."""
-    if config.AUTH_MODE != "multi_user":
-        return None
-    admin = session.scalar(
-        select(UserRow).where(UserRow.is_admin.is_(True), UserRow.is_active.is_(True))
+def has_active_admin(session: Session) -> bool:
+    """Return whether the deployment has an active administrator."""
+    return (
+        session.scalar(
+            select(UserRow.id)
+            .where(UserRow.is_admin.is_(True), UserRow.is_active.is_(True))
+            .limit(1)
+        )
+        is not None
     )
-    if admin is not None:
-        return None
-    email = normalize_email(config.BOOTSTRAP_OWNER_EMAIL)
-    now = datetime.now(UTC)
-    existing = session.scalar(
-        select(InviteRow).where(InviteRow.email == email, InviteRow.used_at.is_(None))
-    )
-    if existing is not None and _as_utc(existing.expires_at) > now:
-        return existing.token
-    return create_invite(session, email=email, role="admin").token
 
 
 # --- Sessions ---------------------------------------------------------------

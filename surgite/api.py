@@ -32,9 +32,9 @@ from surgite.auth import (
     create_invite,
     create_session,
     create_user,
-    ensure_bootstrap_invite,
     get_current_user,
     get_optional_user,
+    has_active_admin,
     is_locked,
     issue_api_key,
     mint_password_reset,
@@ -302,13 +302,11 @@ async def _lifespan(app: FastAPI):
     """Manage bootstrap and background-ingest resources."""
     if config.AUTH_MODE == "multi_user":
         with session_scope() as s:
-            token = ensure_bootstrap_invite(s)
-        if token:
+            needs_admin = not has_active_admin(s)
+        if needs_admin:
             log.warning(
-                "No admin account exists. Bootstrap an admin by redeeming this "
-                "invite for %s:  surgite --redeem-invite %s",
-                config.BOOTSTRAP_OWNER_EMAIL,
-                token,
+                "No admin account exists. Run ./scripts/bootstrap-admin.sh "
+                "from the deployment directory."
             )
 
     interval = _ingest_interval_seconds()

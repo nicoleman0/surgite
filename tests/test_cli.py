@@ -30,6 +30,25 @@ def test_version_flag_is_listed_in_help(capsys, monkeypatch):
     assert "--version" in capsys.readouterr().out
 
 
+def test_bootstrap_admin_flag_calls_local_command(monkeypatch):
+    called = {}
+    monkeypatch.setattr(
+        cli.cli_auth,
+        "cmd_bootstrap_admin",
+        lambda email=None: called.update(email=email) or 0,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        "sys.argv", ["surgite", "--bootstrap-admin", "--email", "owner@example.com"]
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        main()
+
+    assert exc.value.code == 0
+    assert called == {"email": "owner@example.com"}
+
+
 def test_resolve_since_translates_git_relative_dates():
     from datetime import date, timedelta
 

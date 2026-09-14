@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy import select
 
-from surgite import config
+from surgite import auth, config
 from surgite.auth import (
     create_invite,
     create_session,
@@ -15,7 +15,7 @@ from surgite.auth import (
     revoke_session,
     verify_password,
 )
-from surgite.db import SessionRow, UserRow, get_session
+from surgite.db import AuditLogRow, InviteRow, OrgRow, RepoRow, SessionRow, UserRow, get_session
 
 COOKIE = config.SESSION_COOKIE_NAME
 
@@ -39,6 +39,123 @@ def _make_user(email="a@example.com", password="pw-correct-horse", is_admin=Fals
 
 def _make_session(user_id: str) -> str:
     return create_session(user_id, session=None).id
+
+
+# --- administrator bootstrap -----------------------------------------------
+
+
+def test_bootstrap_admin_creates_fresh_admin_and_invalidates_system_invite(multi_user):
+    with get_session() as s:
+        legacy = create_invite(s, email="owner@example.com", role="admin")
+        legacy_id = legacy.id
+
+    user_id = auth.bootstrap_admin("owner@example.com", "correct-horse-battery")
+
+    with get_session() as s:
+        user = s.get(UserRow, user_id)
+        assert user is not None
+        assert user.email == "owner@example.com"
+        assert user.is_admin and user.is_active
+        assert verify_password("correct-horse-battery", user.password_hash or "")
+        assert s.get(OrgRow, user.personal_org_id) is not None
+        legacy = s.get(InviteRow, legacy_id)
+        assert legacy is not None
+        assert legacy.used_at is not None and legacy.used_by == user_id
+        event = s.scalar(select(AuditLogRow).where(AuditLogRow.action == "admin.bootstrap"))
+        assert event is not None
+        assert event.actor_id == user_id
+        assert event.target_id == user_id
+        assert event.metadata_ == {"mode": "created"}
+
+
+def test_bootstrap_admin_claims_existing_owner_without_moving_data(monkeypatch, multi_user):
+    monkeypatch.setattr(config, "BOOTSTRAP_OWNER_EMAIL", "owner@localhost")
+    with get_session() as s:
+        owner = auth.ensure_bootstrap_user(s)
+        owner_id = owner.id
+        repo = RepoRow(
+            name="existing",
+            clone_url="https://example.com/existing.git",
+            owner_id=owner_id,
+            org_id=owner.personal_org_id,
+        )
+        s.add(repo)
+        s.commit()
+        repo_id = repo.id
+
+    assert auth.bootstrap_admin("owner@work.example", "correct-horse-battery") == owner_id
+
+    with get_session() as s:
+        owner = s.get(UserRow, owner_id)
+        repo = s.get(RepoRow, repo_id)
+        assert owner is not None and owner.email == "owner@work.example"
+        assert verify_password("correct-horse-battery", owner.password_hash or "")
+        assert repo is not None and repo.owner_id == owner_id
+        event = s.scalar(select(AuditLogRow).where(AuditLogRow.action == "admin.bootstrap"))
+        assert event is not None and event.metadata_ == {"mode": "claimed"}
+
+
+def test_bootstrap_admin_requires_multi_user_mode():
+    with pytest.raises(ValueError, match="AUTH_MODE=multi_user"):
+        auth.bootstrap_admin("owner@example.com", "correct-horse-battery")
+
+
+def test_bootstrap_admin_refuses_configured_admin(multi_user):
+    _make_user(email="admin@example.com", password="already-configured", is_admin=True)
+    with pytest.raises(ValueError, match="already configured"):
+        auth.bootstrap_admin("owner@example.com", "correct-horse-battery")
+
+
+def test_bootstrap_admin_refuses_conflicting_email(monkeypatch, multi_user):
+    monkeypatch.setattr(config, "BOOTSTRAP_OWNER_EMAIL", "owner@localhost")
+    with get_session() as s:
+        owner_id = auth.ensure_bootstrap_user(s).id
+        create_user(s, email="owner@work.example", password="existing-account")
+
+    with pytest.raises(ValueError, match="already exists"):
+        auth.bootstrap_admin("owner@work.example", "correct-horse-battery")
+
+    with get_session() as s:
+        owner = s.get(UserRow, owner_id)
+        assert owner is not None and owner.email == "owner@localhost"
+        assert owner.password_hash is None
+
+
+def test_bootstrap_admin_refuses_inactive_target(multi_user):
+    with get_session() as s:
+        target = create_user(s, email="owner@example.com", password=None)
+        target.is_active = False
+        s.commit()
+
+    with pytest.raises(ValueError, match="inactive"):
+        auth.bootstrap_admin("owner@example.com", "correct-horse-battery")
+
+
+def test_bootstrap_admin_refuses_ambiguous_passwordless_admins(multi_user):
+    with get_session() as s:
+        s.add_all(
+            [
+                UserRow(email="one@example.com", is_admin=True, is_active=True),
+                UserRow(email="two@example.com", is_admin=True, is_active=True),
+            ]
+        )
+        s.commit()
+
+    with pytest.raises(ValueError, match="multiple passwordless administrators"):
+        auth.bootstrap_admin("owner@example.com", "correct-horse-battery")
+
+
+async def test_lifespan_without_admin_logs_instruction_not_invite(caplog, multi_user):
+    from surgite import api
+
+    caplog.set_level("WARNING")
+    async with api._lifespan(api.app):
+        pass
+
+    with get_session() as s:
+        assert s.scalar(select(InviteRow)) is None
+    assert "./scripts/bootstrap-admin.sh" in caplog.text
+    assert "redeem-invite" not in caplog.text
 
 
 # --- password hashing -------------------------------------------------------
@@ -310,39 +427,6 @@ def test_providers_admin_only_in_multi_user(client, multi_user):
     assert (
         client.get("/providers", headers=_cookie_header(_make_session(regular))).status_code == 403
     )
-
-
-# --- bootstrap invite (startup) ---------------------------------------------
-
-
-def test_bootstrap_invite_minted_when_no_admin(multi_user):
-    from surgite.auth import ensure_bootstrap_invite
-    from surgite.db import InviteRow
-
-    with get_session() as s:
-        token = ensure_bootstrap_invite(s)
-        assert token is not None
-        invite = s.scalar(select(InviteRow).where(InviteRow.token == token))
-        assert invite is not None and invite.role == "admin"
-    # Idempotent: a second call returns the same still-unused token.
-    with get_session() as s:
-        assert ensure_bootstrap_invite(s) == token
-
-
-def test_bootstrap_invite_skipped_when_admin_exists(multi_user):
-    _make_user(email="admin@example.com", is_admin=True)
-    from surgite.auth import ensure_bootstrap_invite
-
-    with get_session() as s:
-        assert ensure_bootstrap_invite(s) is None
-
-
-def test_off_mode_no_bootstrap_invite():
-    # AUTH_MODE defaults to off here; ensure_bootstrap_invite is a no-op.
-    from surgite.auth import ensure_bootstrap_invite
-
-    with get_session() as s:
-        assert ensure_bootstrap_invite(s) is None
 
 
 # --- Password change --------------------------------------------------------
