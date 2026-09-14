@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `surgite --bootstrap-admin` and `./scripts/bootstrap-admin.sh` securely create
+  the first administrator or claim an existing passwordless owner in place.
+
+### Fixed
+
+- Compose now passes documented `.env` settings to the application while
+  retaining its internal host, port, and database overrides.
+
+### Security
+
+- Startup no longer creates or logs an administrator invitation token or
+  redemption URL.
+
 ## [1.8.0] - 2026-09-13
 
 ### Added

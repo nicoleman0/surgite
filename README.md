@@ -12,6 +12,22 @@ Standup summaries from Git history, in a browser or terminal.
 
 ## Quickstart
 
+**Workplace deployment** requires Docker Compose 2.24.0 or newer and HTTPS:
+
+```bash
+git clone https://github.com/nicoleman0/surgite.git
+cd surgite
+cp .env.example .env
+# In .env, set AUTH_MODE=multi_user and BOOTSTRAP_OWNER_EMAIL=you@work.example.
+# Configure an HTTPS reverse proxy before exposing the app.
+docker compose up -d
+./scripts/bootstrap-admin.sh
+```
+
+Log in, open `/admin`, and create an email-pinned user invitation for each
+colleague. Surgite does not email invitation links. Copy each link and share it
+privately with its intended recipient.
+
 **Local CLI** — no server or database:
 
 ```bash
@@ -21,19 +37,17 @@ surgite /path/to/repo --since 7.days.ago
 
 Add `--summarize` for an AI summary after configuring a provider key.
 
-**Web app** — clone the repository and start Compose:
+**Personal web app** — clone the repository and start Compose:
 
 ```bash
 git clone https://github.com/nicoleman0/surgite.git
 cd surgite
 cp .env.example .env
-# For multi-user access, set AUTH_MODE=multi_user and BOOTSTRAP_OWNER_EMAIL.
 docker compose up -d
 ```
 
-In multi-user mode, first start logs an owner invite. Redeem it in the browser
-or with `surgite --redeem-invite <token> --email you@example.com`. The full
-deployment guide is [docs/self-host.md](docs/self-host.md).
+Authentication remains off by default. The full deployment and conversion
+procedures are in [docs/self-host.md](docs/self-host.md).
 
 ## Features
 

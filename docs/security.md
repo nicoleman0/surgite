@@ -16,7 +16,7 @@ Repository ingestion runs Git against registered remotes. Limit registration to 
 | `single_user` | A single trusted operator. |
 | `multi_user` | Separate user accounts, sessions, API keys, invitations, and owner administration. |
 
-`multi_user` is the appropriate mode for shared deployments. It uses password hashing, signed HTTP-only session cookies, CSRF checks on cookie-authenticated writes, scoped API keys, and owner-only administration. Configure bootstrap ownership before first start and restrict access to deployment secrets.
+`multi_user` is the appropriate mode for shared deployments. It uses password hashing, signed HTTP-only session cookies, CSRF checks on cookie-authenticated writes, scoped API keys, and owner-only administration. Set the owner email in `.env`, then run `./scripts/bootstrap-admin.sh` from the deployment host. The password is read from the terminal and is never accepted as a command-line argument. Startup logs contain only this instruction, not an invitation token or redemption URL.
 
 ## Controls
 
@@ -31,6 +31,7 @@ Repository ingestion runs Git against registered remotes. Limit registration to 
 - When a proxy forwards `X-Forwarded-For`, set `TRUSTED_PROXIES` only to its direct source addresses or CIDRs. Leaving it unset is safer than trusting headers from clients.
 - Back up the database and the `SECRETS_ENCRYPTION_KEY` or generated `SECRETS_KEY_FILE` separately. Without the key, encrypted provider credentials cannot be recovered.
 - Protect environment files, database dumps, Git credentials, logs, and backups as secrets. Rotate credentials after a suspected disclosure.
+- Create email-pinned user invitations from `/admin`. Surgite does not send them automatically; share each single-use link privately with its intended recipient.
 - Keep the host, container image, dependencies, and database patched; review [upgrade guidance](self-host.md#upgrades) before release-boundary upgrades.
 
 ## Known limitations
