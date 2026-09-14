@@ -210,7 +210,7 @@ jobs:
 
       - name: The app receives .env values and keeps service overrides
         run: |
-          docker compose exec -T app python -c \
+          docker compose exec -T app .venv/bin/python -c \
             "from surgite import config; \
              assert config.AUTH_MODE == 'multi_user'; \
              assert config.BOOTSTRAP_OWNER_EMAIL == 'compose-ci@example.com'; \
