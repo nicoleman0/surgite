@@ -106,7 +106,7 @@ the upload failed. Confirm with the index, then install:
 
 ```bash
 curl -s https://pypi.org/simple/surgite/ | grep surgite-X.Y.Z
-uv run --no-project --with surgite==X.Y.Z surgite --help
+uv run --no-project --python 3.14 --with surgite==X.Y.Z surgite --help
 ```
 
 **A version number on PyPI is permanent.** It cannot be re-uploaded or
