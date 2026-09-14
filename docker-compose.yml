@@ -20,6 +20,9 @@ services:
     build: .
     image: ${APP_IMAGE:-surgite-app:latest}
     restart: unless-stopped
+    env_file:
+      - path: ./.env
+        required: false
     ports:
       - "${API_PORT:-8000}:8000"
     environment:
