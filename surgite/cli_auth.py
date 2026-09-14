@@ -225,3 +225,28 @@ def cmd_redeem_invite(
         save_session(api_url, name or "session", value)
     print(f"Account created; logged in as {resp.json().get('email')}.")
     return 0
+
+
+def cmd_bootstrap_admin(email: str | None = None) -> int:
+    """Interactively create or claim the deployment administrator."""
+    from surgite import auth, config
+
+    email = email or config.BOOTSTRAP_OWNER_EMAIL
+    password = getpass.getpass("Choose an administrator password: ")
+    confirmation = getpass.getpass("Confirm administrator password: ")
+    if password != confirmation:
+        print("Administrator bootstrap failed: passwords do not match.", file=sys.stderr)
+        return 1
+    if len(password) < 8:
+        print(
+            "Administrator bootstrap failed: password must be at least 8 characters.",
+            file=sys.stderr,
+        )
+        return 1
+    try:
+        auth.bootstrap_admin(email, password)
+    except ValueError as exc:
+        print(f"Administrator bootstrap failed: {exc}.", file=sys.stderr)
+        return 1
+    print(f"Administrator ready: {auth.normalize_email(email)}")
+    return 0

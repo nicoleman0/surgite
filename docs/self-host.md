@@ -1,23 +1,33 @@
 # Self-hosting surgite
 
-Surgite runs as a FastAPI application with PostgreSQL. Docker Compose is the supported local deployment path; see [`.env.example`](../.env.example) for every setting.
+Surgite runs as a FastAPI application with PostgreSQL. Docker Compose is the supported local deployment path. Install Docker Compose 2.24.0 or newer because the deployment uses an [optional environment file](https://docs.docker.com/reference/compose-file/services/#required). See [`.env.example`](../.env.example) for every setting.
 
-## Start
+## Fresh workplace deployment
 
 ```bash
 git clone https://github.com/nicoleman0/surgite.git
 cd surgite
 cp .env.example .env
-# For multi-user access, set AUTH_MODE=multi_user and BOOTSTRAP_OWNER_EMAIL.
+# In .env, set AUTH_MODE=multi_user and BOOTSTRAP_OWNER_EMAIL=you@work.example.
+# Configure an HTTPS reverse proxy before exposing the app.
 docker compose up -d
-docker compose logs -f app
+./scripts/bootstrap-admin.sh
 ```
 
-In multi-user mode, first start prints a one-time owner invite. Redeem it from the web interface or with:
+The script prompts twice for the administrator password. It does not accept the password as an argument or print it. Log in at `/login`, then open `/admin` and create an email-pinned invitation for each user. Surgite does not send these links automatically. Copy each link and share it privately with its intended recipient.
+
+## Convert an existing anonymous deployment
+
+Back up the database first. Existing anonymous deployments already have one passwordless bootstrap administrator that owns their repositories and related data.
 
 ```bash
-uv run surgite --redeem-invite <token> --email you@example.com
+./scripts/backup.sh
+# Set AUTH_MODE=multi_user and BOOTSTRAP_OWNER_EMAIL in .env, and configure HTTPS.
+docker compose up -d
+./scripts/bootstrap-admin.sh
 ```
+
+The bootstrap command claims that existing account in place. Its user ID, repositories, commits, settings, and connections remain unchanged. It refuses to choose between ambiguous accounts or replace an administrator that already has a password.
 
 Use the published image instead of building locally by setting `APP_IMAGE=ghcr.io/nicoleman0/surgite:latest` in `.env`. To upgrade an image deployment, run `docker compose pull && docker compose up -d`.
 
@@ -50,7 +60,7 @@ For private certificate authorities, mount the CA bundle and set `SSL_CERT_FILE`
 
 ### Email
 
-Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS`, and `PUBLIC_URL` to deliver password-reset links. Delivery failures are logged; the initial owner invite is always available in application logs.
+Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_FROM`, `SMTP_TLS`, and `PUBLIC_URL` to deliver password-reset links. Delivery failures are logged. Administrator bootstrap does not use email or write a secret link to the logs.
 
 ## Backups and encryption keys
 

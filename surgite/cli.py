@@ -107,7 +107,14 @@ def main():
         metavar="TOKEN",
         help="Redeem an invite token: create an account and log in",
     )
-    auth_group.add_argument("--email", help="Email for --login / --redeem-invite (or prompt)")
+    auth_group.add_argument(
+        "--bootstrap-admin",
+        action="store_true",
+        help="Interactively create or claim the deployment administrator",
+    )
+    auth_group.add_argument(
+        "--email", help="Email for --login, --redeem-invite, or --bootstrap-admin"
+    )
     auth_group.add_argument(
         "--keyring-file",
         action="store_true",
@@ -137,9 +144,12 @@ def main():
         cli_auth.use_file_fallback(True)
 
     # Auth subcommands short-circuit before the repo/summary path.
-    if args.login or args.logout or args.redeem_invite:
-        if sum(bool(x) for x in (args.login, args.logout, args.redeem_invite)) > 1:
-            parser.error("use only one of --login, --logout, --redeem-invite")
+    auth_actions = (args.login, args.logout, args.redeem_invite, args.bootstrap_admin)
+    if any(auth_actions):
+        if sum(bool(action) for action in auth_actions) > 1:
+            parser.error("use only one authentication operation")
+        if args.bootstrap_admin:
+            sys.exit(cli_auth.cmd_bootstrap_admin(args.email))
         base = _api_base()
         if args.login:
             sys.exit(cli_auth.cmd_login(base, email=args.email))

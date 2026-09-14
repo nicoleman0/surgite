@@ -168,6 +168,20 @@ jobs:
       # build cache, and errors out on cache-to rather than skipping it.
       - uses: docker/setup-buildx-action@v3
 
+      - name: Compose validates without an environment file
+        run: docker compose config --quiet
+
+      - name: Create the Compose environment fixture
+        run: |
+          cat >.env <<'EOF'
+          AUTH_MODE=multi_user
+          BOOTSTRAP_OWNER_EMAIL=compose-ci@example.com
+          SHARE_TTL_DAYS=23
+          API_HOST=192.0.2.1
+          API_PORT=9999
+          POSTGRES_HOST=wrong.example.com
+          EOF
+
       - name: Build the image
         uses: docker/build-push-action@v6
         with:
@@ -190,10 +204,20 @@ jobs:
             sh -c 'mkdir -p /v/legacy && touch /v/legacy/HEAD && chown -R 0:0 /v'
 
       - name: Start the stack
-        # No .env needed: every compose variable has a default. --wait blocks
-        # on the healthchecks both services already define, so a green step
-        # means migrations ran and /health answered.
+        # --wait blocks on both healthchecks, so a green step means migrations
+        # ran and /health answered.
         run: docker compose up -d --wait
+
+      - name: The app receives .env values and keeps service overrides
+        run: |
+          docker compose exec -T app .venv/bin/python -c \
+            "from surgite import config; \
+             assert config.AUTH_MODE == 'multi_user'; \
+             assert config.BOOTSTRAP_OWNER_EMAIL == 'compose-ci@example.com'; \
+             assert config.SHARE_TTL_DAYS == 23; \
+             assert config.API_HOST == '0.0.0.0'; \
+             assert config.API_PORT == 8000; \
+             assert '@db:5432/' in config.DATABASE_URL"
 
       - name: The app process is not root
         # /proc/1/status via python, because `ps` is not in python:*-slim but
