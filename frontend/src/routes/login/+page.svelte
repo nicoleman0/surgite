@@ -28,11 +28,12 @@
 			await login(email.trim(), password);
 			goto(safeReturnPath(page.url.searchParams.get('next'), window.location.origin));
 		} catch (e2) {
-			const err = e2 as Error & { lockoutSeconds?: number };
-			error =
-				err.lockoutSeconds != null
-					? lockoutMessage(err.lockoutSeconds)
-					: 'Invalid email or password';
+			const err = e2 as Error & { lockoutSeconds?: number; status?: number };
+			if (err.lockoutSeconds != null) error = lockoutMessage(err.lockoutSeconds);
+			// /auth/login only exists in multi_user mode.
+			else if (err.status === 404)
+				error = 'This surgite deployment does not use accounts (it is not in multi-user mode).';
+			else error = 'Invalid email or password';
 			submitting = false;
 		}
 	}

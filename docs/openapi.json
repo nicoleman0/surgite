@@ -1248,7 +1248,7 @@
     },
     "/auth/me": {
       "get": {
-        "description": "Return the current user.",
+        "description": "Return the current user and the deployment's auth mode.",
         "operationId": "auth_me",
         "responses": {
           "200": {

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Invite links minted outside `multi_user` mode no longer fail at signup with a
+  bare `Not found`. `POST /admin/invites` now refuses with a `409` naming the
+  required `AUTH_MODE`, the admin page explains the requirement in place of the
+  invite form, and the signup and login pages report an unavailable auth surface
+  instead of relaying the raw `404`.
+
+### Added
+
+- `GET /auth/me` reports the deployment's `auth_mode`.
+
 ## [1.8.1] - 2026-09-14
 
 ### Added

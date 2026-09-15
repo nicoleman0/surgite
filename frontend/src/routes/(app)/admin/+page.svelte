@@ -112,6 +112,8 @@
 	}
 
 	const inviteLink = $derived(lastInvite ? inviteUrl(lastInvite.token) : '');
+	// Invites are only redeemable in multi_user mode; anywhere else the link 404s.
+	const invitesEnabled = $derived(data.user.auth_mode === 'multi_user');
 </script>
 
 <svelte:head>
@@ -147,15 +149,27 @@
 						<span class="text-accent">~/users</span> <span aria-hidden="true">❯</span>
 						<span class="text-fg-faint">{total} user{total !== 1 ? 's' : ''}</span>
 					</span>
-					<button
-						onclick={() => (inviteOpen = !inviteOpen)}
-						class="border border-border bg-surface px-3 py-1.5 text-sm text-fg transition hover:bg-surface-2"
-					>
-						<span class="text-accent">❯</span> {inviteOpen ? 'cancel invite' : 'invite user'}
-					</button>
+					{#if invitesEnabled}
+						<button
+							onclick={() => (inviteOpen = !inviteOpen)}
+							class="border border-border bg-surface px-3 py-1.5 text-sm text-fg transition hover:bg-surface-2"
+						>
+							<span class="text-accent">❯</span> {inviteOpen ? 'cancel invite' : 'invite user'}
+						</button>
+					{/if}
 				</div>
 
-				{#if inviteOpen}
+				{#if !invitesEnabled}
+					<p class="mt-3 border border-border bg-bg px-3 py-3 text-xs text-fg-muted">
+						<span class="text-err">[ !! ]</span> invites need
+						<code class="text-fg">AUTH_MODE=multi_user</code>. This deployment runs
+						<code class="text-fg">{data.user.auth_mode ?? 'unknown'}</code>, where signup links
+						cannot be redeemed. Set it in <code class="text-fg">.env</code>, restart, then run
+						<code class="text-fg">./scripts/bootstrap-admin.sh</code>.
+					</p>
+				{/if}
+
+				{#if inviteOpen && invitesEnabled}
 					<form
 						onsubmit={sendInvite}
 						class="mt-3 flex flex-col gap-2 border border-border bg-bg px-3 py-3"

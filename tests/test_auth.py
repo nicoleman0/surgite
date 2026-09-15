@@ -342,6 +342,52 @@ def test_redeem_unknown_invite_rejected(client, multi_user):
     assert r.status_code == 400
 
 
+# --- invite minting is gated on the mode that can redeem ---------------------
+
+
+@pytest.mark.parametrize("mode", ["off", "single_user"])
+def test_mint_invite_refused_outside_multi_user(client, monkeypatch, mode):
+    """Redemption is multi_user-only, so minting must not hand out a dead link."""
+    monkeypatch.setattr(config, "AUTH_MODE", mode)
+    r = client.post(
+        "/admin/invites",
+        json={"email": "coworker@example.com", "role": "user", "ttl_days": 7},
+        headers={"X-Requested-With": "surgite-web"},
+    )
+    assert r.status_code == 409
+    assert "multi_user" in r.json()["detail"]
+    with get_session() as s:
+        assert s.scalar(select(InviteRow)) is None
+
+
+def test_mint_invite_round_trips_in_multi_user(client, multi_user):
+    admin = _make_user(email="admin@example.com", is_admin=True)
+    sid = _make_session(admin)
+    r = client.post(
+        "/admin/invites",
+        json={"email": "coworker@example.com", "role": "user", "ttl_days": 7},
+        headers=_cookie_header(sid),
+    )
+    assert r.status_code == 201
+    token = r.json()["token"]
+    # The link the admin UI builds is /signup?token=<token>; redeeming it works.
+    redeemed = client.post("/signup", json={"token": token, "password": "brand-new-pass"})
+    assert redeemed.status_code == 201
+    assert redeemed.json()["email"] == "coworker@example.com"
+
+
+@pytest.mark.parametrize("mode", ["off", "single_user", "multi_user"])
+def test_auth_me_reports_the_deployment_mode(client, monkeypatch, mode):
+    monkeypatch.setattr(config, "AUTH_MODE", mode)
+    if mode == "multi_user":
+        sid = _make_session(_make_user(email="who@example.com"))
+        r = client.get("/auth/me", headers=_cookie_header(sid))
+    else:
+        r = client.get("/auth/me")
+    assert r.status_code == 200
+    assert r.json()["auth_mode"] == mode
+
+
 # --- /signup alias ----------------------------------------------------------
 # /signup and /auth/redeem-invite are aliases of the same handler; one
 # parametrized test exercises both paths to keep the diff small.

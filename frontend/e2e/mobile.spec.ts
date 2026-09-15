@@ -7,7 +7,9 @@ const user = {
 	id: 'admin-1',
 	email: `administrator+${long}@example.test`,
 	display_name: `Administrator ${long}`,
-	is_admin: true
+	is_admin: true,
+	// The admin page only offers invites where they can be redeemed.
+	auth_mode: 'multi_user'
 };
 
 const repos = [
