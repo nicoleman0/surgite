@@ -88,8 +88,26 @@ jobs:
   frontend:
     name: Frontend build
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: surgite
+          POSTGRES_PASSWORD: auth-e2e-only
+          POSTGRES_DB: surgite_auth_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U surgite -d surgite_auth_e2e"
+          --health-interval 5s --health-timeout 5s --health-retries 10
     steps:
       - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Sync backend dependencies for auth browser tests
+        run: uv sync --frozen
 
       - uses: actions/setup-node@v7
         with:
@@ -112,6 +130,11 @@ jobs:
 
       - name: Browser tests (Playwright)
         run: cd frontend && npm run test:e2e
+
+      - name: Invite signup against PostgreSQL and HTTPS
+        run: cd frontend && npm run test:e2e:auth
+        env:
+          E2E_DATABASE_URL: postgresql://surgite:auth-e2e-only@127.0.0.1:5432/surgite_auth_e2e
 
   snapshot:
     name: OpenAPI snapshot gate
