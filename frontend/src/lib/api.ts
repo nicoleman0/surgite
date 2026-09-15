@@ -85,11 +85,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 // --- auth (multi_user) -----------------------------------------------------
 
+export type AuthMode = 'off' | 'single_user' | 'multi_user';
+
 export interface CurrentUser {
 	id: string;
 	email: string;
 	display_name: string;
 	is_admin: boolean;
+	// Only /auth/me reports the deployment mode; login and signup responses omit it.
+	auth_mode?: AuthMode;
 }
 
 export const fetchCurrentUser = () => request<CurrentUser>('/auth/me');

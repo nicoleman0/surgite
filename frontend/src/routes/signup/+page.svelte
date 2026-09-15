@@ -29,7 +29,13 @@
 			});
 			goto('/');
 		} catch (e2) {
-			error = e2 instanceof Error ? e2.message : 'Signup failed';
+			const err = e2 as Error & { status?: number };
+			// The redeem endpoint only exists in multi_user mode; elsewhere it 404s,
+			// which as a bare "Not found" reads like a broken link.
+			error =
+				err?.status === 404
+					? 'This surgite deployment is not accepting signups (it does not run in multi-user mode). Ask whoever sent you this link to set AUTH_MODE=multi_user and mint a new invite.'
+					: (err?.message ?? 'Signup failed');
 			submitting = false;
 		}
 	}

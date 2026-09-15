@@ -800,8 +800,8 @@ app.post(
 
 @app.get("/auth/me", summary="Current user", tags=["auth"], operation_id="auth_me")
 def auth_me(current_user: UserRow = Depends(get_current_user)):
-    """Return the current user."""
-    return _user_to_dict(current_user)
+    """Return the current user and the deployment's auth mode."""
+    return {**_user_to_dict(current_user), "auth_mode": config.AUTH_MODE}
 
 
 # --- Password change --------------------------------------------------------
@@ -1194,6 +1194,17 @@ def admin_create_invite(
 ):
     """Create an invite and return its redemption token."""
     _require_admin(current_user)
+    # Invites are redeemed through /auth/redeem-invite, which only exists in
+    # multi_user mode. Minting one in any other mode hands out a link that
+    # always answers 404, so refuse here instead of at redemption time.
+    if config.AUTH_MODE != "multi_user":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Invites require AUTH_MODE=multi_user; this deployment runs "
+                f"AUTH_MODE={config.AUTH_MODE}, where invites cannot be redeemed."
+            ),
+        )
     if req.role not in ("user", "admin"):
         raise HTTPException(status_code=400, detail="role must be 'user' or 'admin'")
     if req.ttl_days <= 0 or req.ttl_days > 90:

@@ -94,6 +94,7 @@ API:  POST /repos  →  create repo + per-repo BackgroundTask ingest (clone/fetc
   - `GET /providers` — lists providers, their default model, and whether each has a key configured (for a UI/CLI to offer a choice)
   - `GET`/`PUT /settings/prompt` — read/update prompt settings; `?repo_id=` scopes to one repo (GET falls back to the global row; PUT 404s on an unknown repo)
   - `GET`/`PUT /settings/provider-keys` — multi_user only (404 otherwise): the caller's own per-user provider keys, Fernet-encrypted at rest and audited. `GET` also returns the visible provider registry (`LLM_LOCAL_ONLY` filtered) as names plus the default, so a non-admin can render a key form without `/providers`, which stays admin-only. The raw key is never returned
+  - `POST /admin/invites` — admin only, and multi_user only (409 otherwise, naming the required `AUTH_MODE`): redemption runs through `POST /auth/redeem-invite`, which 404s outside multi_user, so minting elsewhere would only hand out a dead `/signup?token=` link. `GET /auth/me` reports `auth_mode` so the SPA can hide the invite form instead of offering it
   - `POST /summaries` — persist the current summary params behind a slug; `GET /summaries/{slug}` resolves it (404 once expired); `GET /s/{slug}` serves the SPA shell for the read-only share view
   - `GET /health/deep` — DB + `git ls-remote` against one registered repo + provider reachability; 503 names the failing component (`no_repos`/`missing_key` aren't failures)
   - `SQLAlchemyError` is mapped to a 503 globally

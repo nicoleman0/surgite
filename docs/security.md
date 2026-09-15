@@ -16,6 +16,8 @@ Repository ingestion runs Git against registered remotes. Limit registration to 
 | `single_user` | A single trusted operator. |
 | `multi_user` | Separate user accounts, sessions, API keys, invitations, and owner administration. |
 
+Invitations exist only in `multi_user` mode. `POST /admin/invites` answers `409` in `off` and `single_user` mode rather than minting a token that `POST /auth/redeem-invite` — a `multi_user`-only route — would reject with `404`.
+
 `multi_user` is the appropriate mode for shared deployments. It uses password hashing, signed HTTP-only session cookies, CSRF checks on cookie-authenticated writes, scoped API keys, and owner-only administration. Set the owner email in `.env`, then run `./scripts/bootstrap-admin.sh` from the deployment host. The password is read from the terminal and is never accepted as a command-line argument. Startup logs contain only this instruction, not an invitation token or redemption URL.
 
 ## Controls
