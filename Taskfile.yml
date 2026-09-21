@@ -5,7 +5,7 @@
 # Install task: https://taskfile.dev/installation/
 # On Debian/Ubuntu: `go install github.com/go-task/task/v3/cmd/task@latest`
 # On macOS: `brew install go-task`
-# In CI: the `snapshot` job in .github/workflows/ci.yml (pips `go-task-bin`).
+# In CI: the `snapshot` job in .github/workflows/ci.yml installs `go-task-bin` with `uv tool install`.
 #
 # Workflow:
 #   - After changing a route, run `task openapi-snapshot` to regenerate
