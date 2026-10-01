@@ -206,7 +206,7 @@ jobs:
           EOF
 
       - name: Build the image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           # load, not push. The tag matches the compose `app` service's default
