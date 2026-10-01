@@ -189,7 +189,7 @@ jobs:
 
       # Same reason as publish.yml: the default docker driver cannot export a
       # build cache, and errors out on cache-to rather than skipping it.
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
 
       - name: Compose validates without an environment file
         run: docker compose config --quiet
